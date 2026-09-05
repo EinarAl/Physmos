@@ -65,6 +65,7 @@ export function Toolbar() {
       <button className={'btn' + (gridOn ? ' toggled' : '')} onClick={() => setGridOn(!gridOn)} title="toggle ground grid">
         {'\u2295'} Grid
       </button>
+      <span className="sep" />
       <button className="btn" onClick={triggerResetView} title="reset camera">
         {'\u2299'} View
       </button>
@@ -77,6 +78,7 @@ export function Toolbar() {
       <button className="btn" onClick={() => setScenePanel('import')} title="import a scene from JSON">
         {'\u2b07'} Import
       </button>
+      <span className="sep" />
       <button className="btn" onClick={() => setHelpOn(true)} title="how this works">
         {'?'}
       </button>

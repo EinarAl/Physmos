@@ -43,6 +43,13 @@ body,
   flex: 1;
 }
 
+.toolbar .sep {
+  width: 1px;
+  height: 22px;
+  background: #2a3140;
+  flex-shrink: 0;
+}
+
 .toolbar .kctl {
   display: flex;
   align-items: center;
@@ -88,7 +95,15 @@ body,
   border-radius: 6px;
   padding: 6px 14px;
   font-size: 13px;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn:focus-visible,
+.eye:focus-visible,
+.obj-del:focus-visible,
+.swatches button:focus-visible {
+  outline: 2px solid #5d9fff;
+  outline-offset: 2px;
 }
 
 .btn:hover {
@@ -125,6 +140,7 @@ body,
   font-size: 13px;
   color: #8a93a3;
   min-width: 90px;
+  font-variant-numeric: tabular-nums;
 }
 
 .body {
@@ -146,6 +162,8 @@ body,
   border-right: 1px solid #2a3140;
   overflow-y: auto;
   padding: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a3140 transparent;
 }
 
 .addbar {
@@ -204,6 +222,11 @@ body,
   background: #161b24;
   cursor: pointer;
   user-select: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.object-row:hover {
+  background: #1a2230;
 }
 
 .object-row.selected {
@@ -228,12 +251,30 @@ body,
 
 .object-row .kind {
   font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #8a93a3;
-  border: 1px solid #2a3140;
-  border-radius: 4px;
-  padding: 1px 5px;
+  border-radius: 8px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+
+.object-row .kind.curve {
+  color: #ff8787;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+}
+
+.object-row .kind.surface {
+  color: #7fb2ff;
+  background: rgba(93, 159, 255, 0.12);
+  border: 1px solid rgba(93, 159, 255, 0.35);
+}
+
+.object-row .kind.point {
+  color: #ffd98a;
+  background: rgba(255, 209, 102, 0.12);
+  border: 1px solid rgba(255, 209, 102, 0.35);
 }
 
 .eye {

@@ -15,7 +15,7 @@ function ObjectRow({ o }: { o: SimObject }) {
         {o.visible ? '\u25c9' : '\u25ef'}
       </span>
       <span className="name">{o.name}</span>
-      <span className="kind">{o.kind}</span>
+      <span className={'kind ' + o.kind}>{o.kind}</span>
       {o.kind === 'point' && o.error && <span title="physics error" style={{ color: '#ff6b6b' }}>!</span>}
       {o.kind !== 'point' && o.error && <span title={o.error} style={{ color: '#ff6b6b' }}>!</span>}
       <button className="obj-del" onClick={(e) => { e.stopPropagation(); remove(o.id) }}>
