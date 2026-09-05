@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SimObject, Vec3, PhysicsProps } from './types'
 import { COLORS } from './theme'
+import { sanitizeObject, type SceneSnapshot } from './scene/io'
 
 let seq = 1
 function nextId(): string {
@@ -101,6 +102,7 @@ interface AppStore {
   frameT: number
   trailsOn: boolean
   trailVersion: number
+  scenePanel: 'export' | 'import' | null
   select: (id: string | null) => void
   addObject: (o: SimObject) => void
   updateObject: (id: string, patch: ObjectPatch) => void
@@ -115,6 +117,8 @@ interface AppStore {
   setTrailsOn: (on: boolean) => void
   clearTrails: () => void
   resetSim: () => void
+  setScenePanel: (p: 'export' | 'import' | null) => void
+  loadScene: (snap: SceneSnapshot) => void
 }
 
 function bumpsEngine(patch: ObjectPatch): boolean {
@@ -134,6 +138,7 @@ export const useStore = create<AppStore>((set) => ({
   frameT: 0,
   trailsOn: true,
   trailVersion: 0,
+  scenePanel: null,
   select: (id) => set({ selectedId: id }),
   addObject: (o) => set((s) => ({ objects: [...s.objects, o], selectedId: o.id })),
   updateObject: (id, patch) =>
@@ -167,6 +172,24 @@ export const useStore = create<AppStore>((set) => ({
   clearTrails: () => set((s) => ({ trailVersion: s.trailVersion + 1 })),
   resetSim: () =>
     set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1, trailVersion: s.trailVersion + 1 })),
+  setScenePanel: (scenePanel) => set({ scenePanel }),
+  loadScene: (snap) =>
+    set((s) => {
+      const objects = snap.objects
+        .map((raw) => sanitizeObject(raw, nextId))
+        .filter((o): o is SimObject => o !== null)
+      return {
+        objects,
+        coulombK: snap.fields.coulombK,
+        gravity: snap.fields.gravity,
+        trailsOn: snap.fields.trailsOn,
+        selectedId: null,
+        playing: false,
+        time: 0,
+        engineVersion: s.engineVersion + 1,
+        trailVersion: s.trailVersion + 1,
+      }
+    }),
 }))
 
 export { nextId }

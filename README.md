@@ -8,6 +8,7 @@
 - Frenet frame inspector: scrub `t` along a selected curve and read the T / N / B triad with curvature and torsion computed by central differences
 - Point trails: moving points trace their path through the force field, with a toolbar toggle and clear
 - Force fields: uniform gravity (scalar `g` in the toolbar) plus per-point linear drag (`F = -c·v`), both drawn as an orange free-body arrow
+- Save and load scenes: export the whole scene (objects, forces, charges, fields) to JSON from the toolbar, paste it back to import, fully client-side
 
 ```bash
 pnpm install

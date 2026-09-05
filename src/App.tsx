@@ -4,11 +4,13 @@ import * as THREE from 'three'
 import { Toolbar } from './ui/Toolbar'
 import { Sidebar } from './ui/Sidebar'
 import { Simulation } from './scene/Simulation'
+import { SceneIO } from './ui/SceneIO'
 
 export default function App() {
   return (
     <div className="app">
       <Toolbar />
+      <SceneIO />
       <div className="body">
         <Sidebar />
         <div className="canvas-wrap">

@@ -13,6 +13,7 @@ export function Toolbar() {
   const trailsOn = useStore((s) => s.trailsOn)
   const setTrailsOn = useStore((s) => s.setTrailsOn)
   const clearTrails = useStore((s) => s.clearTrails)
+  const setScenePanel = useStore((s) => s.setScenePanel)
 
   return (
     <header className="toolbar">
@@ -38,6 +39,12 @@ export function Toolbar() {
       <div className="kctl">
         <NumField label="g" value={gravity} step={0.5} onChange={setGravity} />
       </div>
+      <button className="btn" onClick={() => setScenePanel('export')} title="export current scene as JSON">
+        {'\u2b06'} Export
+      </button>
+      <button className="btn" onClick={() => setScenePanel('import')} title="import a scene from JSON">
+        {'\u2b07'} Import
+      </button>
       <span className="spacer" />
       <span className={'play-indicator' + (playing ? '' : ' paused')}>
         {playing ? 'simulating' : 'paused'}
