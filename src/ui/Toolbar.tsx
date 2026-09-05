@@ -8,6 +8,9 @@ export function Toolbar() {
   const resetSim = useStore((s) => s.resetSim)
   const coulombK = useStore((s) => s.coulombK)
   const setCoulombK = useStore((s) => s.setCoulombK)
+  const trailsOn = useStore((s) => s.trailsOn)
+  const setTrailsOn = useStore((s) => s.setTrailsOn)
+  const clearTrails = useStore((s) => s.clearTrails)
 
   return (
     <header className="toolbar">
@@ -19,6 +22,12 @@ export function Toolbar() {
       </button>
       <button className="btn" onClick={resetSim}>
         {'\u21ba'} Reset
+      </button>
+      <button className={'btn' + (trailsOn ? ' toggled' : '')} onClick={() => setTrailsOn(!trailsOn)}>
+        {'\u2303'} Trails
+      </button>
+      <button className="btn" onClick={clearTrails} title="clear point trails">
+        {'\u2715'} Clear
       </button>
       <span className="clock">t = {time.toFixed(1)}s</span>
       <div className="kctl">

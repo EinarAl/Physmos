@@ -4,9 +4,12 @@ import * as THREE from 'three'
 import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
 import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
 import { frenetFrame } from '../engine/frenet'
+import { appendTrail, TRAIL_MAX } from './trails'
 import { useStore } from '../store'
 import { directionAsVec, chargeForceOn, stepPhysics, type DynState } from '../physics/engine'
 import { AXIS_COLORS, COLORS } from '../theme'
+
+// oxlint-disable react/immutability -- scene objects are imperative and mutated per frame
 
 const dynRef = new Map<string, DynState>()
 
@@ -287,6 +290,57 @@ function WorldObjects() {
   )
 }
 
+function TrailLine({ o }: { o: PointObj }) {
+  const playing = useStore((s) => s.playing)
+  const trailsOn = useStore((s) => s.trailsOn)
+  const trailVersion = useStore((s) => s.trailVersion)
+const line = useMemo(() => {
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3))
+    return new THREE.Line(
+      geo,
+      new THREE.LineBasicMaterial({ color: o.color, transparent: true, opacity: 0.8, depthWrite: false }),
+    )
+  }, [o.color])
+
+  const lastVer = useRef(trailVersion)
+  const n = useRef(0)
+
+  useFrame(() => {
+    if (lastVer.current !== trailVersion) {
+      lastVer.current = trailVersion
+      n.current = 0
+      const g = line.geometry as THREE.BufferGeometry
+      g.setDrawRange(0, 0)
+    }
+    if (!playing || !trailsOn) return
+    const st = dynRef.get(o.id)
+    if (!st) return
+    const geo = line.geometry as THREE.BufferGeometry
+    const arr = geo.attributes.position.array as Float32Array
+    n.current = appendTrail(arr, n.current, st.pos)
+    geo.attributes.position.needsUpdate = true
+    geo.setDrawRange(0, n.current)
+    geo.computeBoundingSphere()
+  })
+  return <primitive object={line} />
+}
+
+function Trails() {
+  const objects = useStore((s) => s.objects)
+  const points = useMemo(
+    () => objects.filter((o): o is PointObj => o.kind === 'point' && !o.physics.anchored),
+    [objects],
+  )
+  return (
+    <>
+      {points.map((o) => (
+        <TrailLine key={o.id} o={o} />
+      ))}
+    </>
+  )
+}
+
 export function Simulation() {
   useDynamics()
   return (
@@ -297,6 +351,7 @@ export function Simulation() {
       <directionalLight position={[-6, -4, 6]} intensity={0.5} color="#9db8ff" />
       <gridHelper args={[22, 22, COLORS.gridMajor, COLORS.gridMinor]} rotation={[Math.PI / 2, 0, 0]} />
       <Axes />
+      <Trails />
       <WorldObjects />
     </>
   )

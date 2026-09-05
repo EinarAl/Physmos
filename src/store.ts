@@ -96,6 +96,8 @@ interface AppStore {
   coulombK: number
   frameOn: boolean
   frameT: number
+  trailsOn: boolean
+  trailVersion: number
   select: (id: string | null) => void
   addObject: (o: SimObject) => void
   updateObject: (id: string, patch: ObjectPatch) => void
@@ -106,6 +108,8 @@ interface AppStore {
   setCoulombK: (k: number) => void
   setFrameOn: (on: boolean) => void
   setFrameT: (t: number) => void
+  setTrailsOn: (on: boolean) => void
+  clearTrails: () => void
   resetSim: () => void
 }
 
@@ -123,6 +127,8 @@ export const useStore = create<AppStore>((set) => ({
   coulombK: 40,
   frameOn: false,
   frameT: 0,
+  trailsOn: true,
+  trailVersion: 0,
   select: (id) => set({ selectedId: id }),
   addObject: (o) => set((s) => ({ objects: [...s.objects, o], selectedId: o.id })),
   updateObject: (id, patch) =>
@@ -151,8 +157,10 @@ export const useStore = create<AppStore>((set) => ({
   setCoulombK: (coulombK) => set({ coulombK }),
   setFrameOn: (frameOn) => set({ frameOn }),
   setFrameT: (frameT) => set({ frameT }),
+  setTrailsOn: (trailsOn) => set({ trailsOn }),
+  clearTrails: () => set((s) => ({ trailVersion: s.trailVersion + 1 })),
   resetSim: () =>
-    set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1 })),
+    set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1, trailVersion: s.trailVersion + 1 })),
 }))
 
 export { nextId }

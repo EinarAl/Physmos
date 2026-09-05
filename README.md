@@ -6,6 +6,7 @@
 - Point physics: free-body forces, mass, velocity, anchored bodies, integrated with a semi implicit Euler step
 - Charge interaction: every charged point pulls on every other via Coulomb's law, with a live force arrow and adjustable `k`
 - Frenet frame inspector: scrub `t` along a selected curve and read the T / N / B triad with curvature and torsion computed by central differences
+- Point trails: moving points trace their path through the force field, with a toolbar toggle and clear
 
 ```bash
 pnpm install
