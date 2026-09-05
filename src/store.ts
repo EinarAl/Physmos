@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SimObject, Vec3, PhysicsProps } from './types'
-import { COLORS } from './theme'
 import { sanitizeObject, type SceneSnapshot } from './scene/io'
+import { buildDemoSnapshot } from './scene/presets'
 
 let seq = 1
 function nextId(): string {
@@ -9,66 +9,7 @@ function nextId(): string {
 }
 
 function makeInitialObjects(): SimObject[] {
-  return [
-    {
-      id: nextId(),
-      kind: 'curve',
-      name: 'helix',
-      color: '#ff6b6b',
-      visible: true,
-      expr: '(R*sin(t), R*cos(t), vd*t)',
-      params: 'R=3, vd=0.9, w=1',
-      range: [0, Math.PI * 2 + 0.015],
-      samples: 600,
-    },
-    {
-      id: nextId(),
-      kind: 'surface',
-      name: 'saddle',
-      color: '#5d9fff',
-      visible: true,
-      mode: 'explicit',
-      expr: '(x*x - y*y) / 3',
-      params: '',
-      rangeA: [-4, 4],
-      rangeB: [-4, 4],
-      resolution: [60, 60],
-    },
-    {
-      id: nextId(),
-      kind: 'point',
-      name: 'probe',
-      color: COLORS.yellow,
-      visible: true,
-      size: 0.25,
-      position: [2, 1, -1],
-      physics: {
-        mass: 1,
-        charge: 2,
-        drag: 1,
-        anchored: false,
-        velocity: [0.5, 0, 4],
-        forces: [{ id: nextId(), label: 'F_push', vector: [0, 0, 3] }],
-      },
-    },
-    {
-      id: nextId(),
-      kind: 'point',
-      name: 'charge well',
-      color: COLORS.pink,
-      visible: true,
-      size: 0.34,
-      position: [4, 1, -1],
-      physics: {
-        mass: 5,
-        charge: -5,
-        drag: 0,
-        anchored: true,
-        velocity: [0, 0, 0],
-        forces: [],
-      },
-    },
-  ]
+  return buildDemoSnapshot({ newId: nextId }).objects
 }
 
 export interface ObjectPatch {
@@ -98,10 +39,14 @@ interface AppStore {
   engineVersion: number
   coulombK: number
   gravity: number
+  timeScale: number
   frameOn: boolean
   frameT: number
   trailsOn: boolean
   trailVersion: number
+  gridOn: boolean
+  resetView: number
+  helpOn: boolean
   scenePanel: 'export' | 'import' | null
   select: (id: string | null) => void
   addObject: (o: SimObject) => void
@@ -112,13 +57,18 @@ interface AppStore {
   setLivePos: (rec: Record<string, Vec3>) => void
   setCoulombK: (k: number) => void
   setGravity: (g: number) => void
+  setTimeScale: (s: number) => void
   setFrameOn: (on: boolean) => void
   setFrameT: (t: number) => void
   setTrailsOn: (on: boolean) => void
   clearTrails: () => void
   resetSim: () => void
+  setGridOn: (on: boolean) => void
+  triggerResetView: () => void
+  setHelpOn: (on: boolean) => void
   setScenePanel: (p: 'export' | 'import' | null) => void
   loadScene: (snap: SceneSnapshot) => void
+  loadDemo: () => void
 }
 
 function bumpsEngine(patch: ObjectPatch): boolean {
@@ -134,10 +84,14 @@ export const useStore = create<AppStore>((set) => ({
   engineVersion: 0,
   coulombK: 40,
   gravity: 9.81,
+  timeScale: 1,
   frameOn: false,
   frameT: 0,
   trailsOn: true,
   trailVersion: 0,
+  gridOn: true,
+  resetView: 0,
+  helpOn: false,
   scenePanel: null,
   select: (id) => set({ selectedId: id }),
   addObject: (o) => set((s) => ({ objects: [...s.objects, o], selectedId: o.id })),
@@ -166,6 +120,7 @@ export const useStore = create<AppStore>((set) => ({
   setLivePos: (livePos) => set({ livePos }),
   setCoulombK: (coulombK) => set({ coulombK }),
   setGravity: (gravity) => set({ gravity }),
+  setTimeScale: (timeScale) => set({ timeScale }),
   setFrameOn: (frameOn) => set({ frameOn }),
   setFrameT: (frameT) => set({ frameT }),
   setTrailsOn: (trailsOn) => set({ trailsOn }),
@@ -186,6 +141,25 @@ export const useStore = create<AppStore>((set) => ({
         selectedId: null,
         playing: false,
         time: 0,
+        engineVersion: s.engineVersion + 1,
+        trailVersion: s.trailVersion + 1,
+      }
+    }),
+  setGridOn: (gridOn) => set({ gridOn }),
+  triggerResetView: () => set((s) => ({ resetView: s.resetView + 1 })),
+  setHelpOn: (helpOn) => set({ helpOn }),
+  loadDemo: () =>
+    set((s) => {
+      const snap = buildDemoSnapshot({ newId: nextId })
+      return {
+        objects: snap.objects,
+        coulombK: snap.fields.coulombK,
+        gravity: snap.fields.gravity,
+        trailsOn: snap.fields.trailsOn,
+        selectedId: null,
+        playing: false,
+        time: 0,
+        timeScale: 1,
         engineVersion: s.engineVersion + 1,
         trailVersion: s.trailVersion + 1,
       }

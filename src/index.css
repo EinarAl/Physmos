@@ -53,6 +53,23 @@ body,
   margin: 0;
 }
 
+.toolbar .kctl.speed {
+  gap: 6px;
+  font-size: 11px;
+  color: #8a93a3;
+}
+
+.toolbar .kctl.speed input[type='range'] {
+  width: 110px;
+  accent-color: #5d9fff;
+}
+
+.toolbar .kctl.speed .speed-val {
+  min-width: 30px;
+  font-variant-numeric: tabular-nums;
+  color: #d7dce4;
+}
+
 .toolbar .kctl label {
   font-size: 11px;
   color: #8a93a3;
@@ -433,4 +450,45 @@ body,
   justify-content: flex-end;
   gap: 8px;
   margin-top: 12px;
+}
+
+.panel.help-panel {
+  background: #161b24;
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  padding: 18px 22px;
+  width: min(620px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.panel.help-panel h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.panel.help-panel h4 {
+  margin: 16px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5d9fff;
+}
+
+.panel.help-panel p {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: #b9c2d0;
+}
+
+.panel.help-panel code {
+  color: #d7dce4;
+  background: #0d1016;
+  border: 1px solid #2a3140;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
 }

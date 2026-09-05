@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
 import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
@@ -62,8 +62,9 @@ function useDynamics(): void {
       reseed(objects)
     }
     if (playing) {
-      stepPhysics(objects, dynRef, delta, useStore.getState().coulombK, useStore.getState().gravity)
-      tRef.current += delta
+      const dt = delta * useStore.getState().timeScale
+      stepPhysics(objects, dynRef, dt, useStore.getState().coulombK, useStore.getState().gravity)
+      tRef.current += dt
     }
     accRef.current += delta
     if (accRef.current > 0.12) {
@@ -367,13 +368,23 @@ function Trails() {
 
 export function Simulation() {
   useDynamics()
+  const gridOn = useStore((s) => s.gridOn)
+  const resetView = useStore((s) => s.resetView)
+  const { camera, controls } = useThree()
+  useEffect(() => {
+    if (resetView === 0) return
+    camera.position.set(7, -7, 6)
+    const ctl = controls as { target?: THREE.Vector3; update?: () => void } | null
+    ctl?.target?.set(0, 0, 0)
+    ctl?.update?.()
+  }, [resetView, camera, controls])
   return (
     <>
       <color attach="background" args={[COLORS.bg]} />
       <ambientLight intensity={0.65} />
       <directionalLight position={[6, 10, 12]} intensity={1.4} />
       <directionalLight position={[-6, -4, 6]} intensity={0.5} color="#9db8ff" />
-      <gridHelper args={[22, 22, COLORS.gridMajor, COLORS.gridMinor]} rotation={[Math.PI / 2, 0, 0]} />
+      {gridOn && <gridHelper args={[22, 22, COLORS.gridMajor, COLORS.gridMinor]} rotation={[Math.PI / 2, 0, 0]} />}
       <Axes />
       <Trails />
       <WorldObjects />

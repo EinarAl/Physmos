@@ -26,10 +26,6 @@ export function SceneIO() {
       setError('That does not look like a valid physmos scene file.')
       return
     }
-    if (snap.objects.length === 0) {
-      setError('The scene file contains no objects.')
-      return
-    }
     loadScene(snap)
     setScenePanel(null)
   }

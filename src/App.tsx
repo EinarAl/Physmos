@@ -5,12 +5,14 @@ import { Toolbar } from './ui/Toolbar'
 import { Sidebar } from './ui/Sidebar'
 import { Simulation } from './scene/Simulation'
 import { SceneIO } from './ui/SceneIO'
+import { HelpModal } from './ui/HelpModal'
 
 export default function App() {
   return (
     <div className="app">
       <Toolbar />
       <SceneIO />
+      <HelpModal />
       <div className="body">
         <Sidebar />
         <div className="canvas-wrap">
