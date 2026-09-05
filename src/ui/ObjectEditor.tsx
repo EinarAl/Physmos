@@ -1,40 +1,9 @@
-import { useState } from 'react'
 import type { CurveObj, ForceRow, PointObj, SurfaceObj, Vec3 } from '../types'
 import type { ObjectPatch } from '../store'
 import { useStore } from '../store'
 import { PRESET_COLORS } from '../theme'
 import { nextId } from '../store'
-
-function NumField({
-  label,
-  value,
-  onChange,
-  step = 0.1,
-}: {
-  label?: string
-  value: number
-  onChange: (v: number) => void
-  step?: number
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <div className="field">
-      {label && <label>{label}</label>}
-      <input
-        className="number-input"
-        type="number"
-        step={step}
-        value={draft ?? String(value)}
-        onChange={(e) => {
-          setDraft(e.target.value)
-          const n = Number(e.target.value)
-          if (Number.isFinite(n)) onChange(n)
-        }}
-        onBlur={() => setDraft(null)}
-      />
-    </div>
-  )
-}
+import { NumField } from './NumField'
 
 function VecEditor({
   label,
@@ -169,6 +138,12 @@ function PointEditor({ o }: { o: PointObj }) {
         step={0.1}
         onChange={(v) => patch({ physics: { mass: v } })}
       />
+      <NumField
+        label="charge (q)"
+        value={o.physics.charge}
+        step={0.5}
+        onChange={(v) => patch({ physics: { charge: v } })}
+      />
       <div className="field">
         <label>initial velocity (dx, dy, dz)</label>
         <div className="row">
@@ -217,7 +192,8 @@ function PointEditor({ o }: { o: PointObj }) {
         + force
       </button>
       <div className="hint">
-        play to integrate: a = F/m, p += v dt. anchored bodies ignore forces.
+        play to integrate: a = F/m, p += v dt. charged bodies pull on each other (k in toolbar). anchored
+        bodies ignore forces.
       </div>
     </>
   )

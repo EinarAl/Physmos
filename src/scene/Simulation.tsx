@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
 import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
 import { useStore } from '../store'
-import { directionAsVec, stepPhysics, type DynState } from '../physics/engine'
+import { directionAsVec, chargeForceOn, stepPhysics, type DynState } from '../physics/engine'
 import { AXIS_COLORS, COLORS } from '../theme'
 
 const dynRef = new Map<string, DynState>()
@@ -58,7 +58,7 @@ function useDynamics(): void {
       reseed(objects)
     }
     if (playing) {
-      stepPhysics(objects, dynRef, delta)
+      stepPhysics(objects, dynRef, delta, useStore.getState().coulombK)
       tRef.current += delta
     }
     accRef.current += delta
@@ -171,6 +171,7 @@ function PointBody({ o }: { o: PointObj }) {
   const selected = useStore((s) => s.selectedId === o.id)
   const mesh = useRef<THREE.Mesh>(null)
   const arrows = useRef<Array<THREE.ArrowHelper | null>>([])
+  const chargeIdx = o.physics.forces.length
 
   useFrame(() => {
     const st = dynRef.get(o.id)
@@ -189,6 +190,19 @@ function PointBody({ o }: { o: PointObj }) {
       arrow.setDirection(new THREE.Vector3(...directionAsVec(row.vector)))
       arrow.setLength(0.35 * mag, 0.22, 0.16)
     })
+    const qArrow = arrows.current[chargeIdx]
+    if (qArrow) {
+      const v = chargeForceOn(o, useStore.getState().objects, dynRef, useStore.getState().coulombK)
+      const mag = Math.hypot(v[0], v[1], v[2])
+      if (o.physics.charge === 0 || mag === 0) {
+        qArrow.visible = false
+        return
+      }
+      qArrow.visible = true
+      qArrow.position.set(base[0], base[1], base[2])
+      qArrow.setDirection(new THREE.Vector3(...directionAsVec(v)))
+      qArrow.setLength(0.35 * mag, 0.22, 0.16)
+    }
   })
 
   return (
@@ -217,6 +231,14 @@ function PointBody({ o }: { o: PointObj }) {
           ]}
         />
       ))}
+      {o.physics.charge !== 0 && (
+        <arrowHelper
+          ref={(el) => {
+            arrows.current[chargeIdx] = el
+          }}
+          args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(...o.position), 0.5, '#52e0ff', 0.22, 0.16]}
+        />
+      )}
     </group>
   )
 }

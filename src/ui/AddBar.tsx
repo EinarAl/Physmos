@@ -46,7 +46,7 @@ export function AddBar() {
         ...base,
         size: 0.25,
         position: [p[0], p[1], p[2]],
-        physics: { mass: 1, anchored: false, velocity: [0, 0, 0], forces: [] },
+        physics: { mass: 1, charge: 0, anchored: false, velocity: [0, 0, 0], forces: [] },
       }
     } else if (cls.type === 'curve') {
       obj = {
@@ -103,7 +103,7 @@ export function AddBar() {
       <div className="addbar">
         <input
           className="text-input"
-          placeholder="(sin(t), cos(t), 0)  ??  x*y  ??  (1, 2, 3)"
+          placeholder="(sin(t), cos(t), 0)  ·  x*y  ·  (1, 2, 3)"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {

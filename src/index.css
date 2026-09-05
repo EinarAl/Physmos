@@ -43,6 +43,26 @@ body,
   flex: 1;
 }
 
+.toolbar .kctl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar .kctl .field {
+  margin: 0;
+}
+
+.toolbar .kctl label {
+  font-size: 11px;
+  color: #8a93a3;
+  margin-right: 2px;
+}
+
+.toolbar .kctl .number-input {
+  width: 56px;
+}
+
 .btn {
   cursor: pointer;
   border: 1px solid #3a4456;

@@ -43,9 +43,26 @@ function makeInitialObjects(): SimObject[] {
       position: [2, 1, -1],
       physics: {
         mass: 1,
+        charge: 2,
         anchored: false,
         velocity: [0.5, 0, 0.4],
         forces: [{ id: nextId(), label: 'F_push', vector: [0, 0, 3] }],
+      },
+    },
+    {
+      id: nextId(),
+      kind: 'point',
+      name: 'charge well',
+      color: COLORS.pink,
+      visible: true,
+      size: 0.34,
+      position: [4, 1, -1],
+      physics: {
+        mass: 5,
+        charge: -5,
+        anchored: true,
+        velocity: [0, 0, 0],
+        forces: [],
       },
     },
   ]
@@ -76,6 +93,7 @@ interface AppStore {
   time: number
   livePos: Record<string, Vec3>
   engineVersion: number
+  coulombK: number
   select: (id: string | null) => void
   addObject: (o: SimObject) => void
   updateObject: (id: string, patch: ObjectPatch) => void
@@ -83,6 +101,7 @@ interface AppStore {
   setPlaying: (p: boolean) => void
   setTime: (t: number) => void
   setLivePos: (rec: Record<string, Vec3>) => void
+  setCoulombK: (k: number) => void
   resetSim: () => void
 }
 
@@ -97,6 +116,7 @@ export const useStore = create<AppStore>((set) => ({
   time: 0,
   livePos: {},
   engineVersion: 0,
+  coulombK: 40,
   select: (id) => set({ selectedId: id }),
   addObject: (o) => set((s) => ({ objects: [...s.objects, o], selectedId: o.id })),
   updateObject: (id, patch) =>
@@ -122,6 +142,7 @@ export const useStore = create<AppStore>((set) => ({
   setPlaying: (playing) => set({ playing }),
   setTime: (time) => set({ time }),
   setLivePos: (livePos) => set({ livePos }),
+  setCoulombK: (coulombK) => set({ coulombK }),
   resetSim: () =>
     set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1 })),
 }))

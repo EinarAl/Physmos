@@ -9,6 +9,7 @@ export const COLORS = {
   green: '#5dff7d',
   blue: '#5d9fff',
   yellow: '#ffd166',
+  pink: '#e07a9e',
   gridMajor: '#445566',
   gridMinor: '#2a3a4a',
 } as const
