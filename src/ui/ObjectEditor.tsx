@@ -146,6 +146,12 @@ function PointEditor({ o }: { o: PointObj }) {
         step={0.5}
         onChange={(v) => patch({ physics: { charge: v } })}
       />
+      <NumField
+        label="drag (c)"
+        value={o.physics.drag ?? 0}
+        step={0.1}
+        onChange={(v) => patch({ physics: { drag: v } })}
+      />
       <div className="field">
         <label>initial velocity (dx, dy, dz)</label>
         <div className="row">

@@ -8,6 +8,8 @@ export function Toolbar() {
   const resetSim = useStore((s) => s.resetSim)
   const coulombK = useStore((s) => s.coulombK)
   const setCoulombK = useStore((s) => s.setCoulombK)
+  const gravity = useStore((s) => s.gravity)
+  const setGravity = useStore((s) => s.setGravity)
   const trailsOn = useStore((s) => s.trailsOn)
   const setTrailsOn = useStore((s) => s.setTrailsOn)
   const clearTrails = useStore((s) => s.clearTrails)
@@ -32,6 +34,9 @@ export function Toolbar() {
       <span className="clock">t = {time.toFixed(1)}s</span>
       <div className="kctl">
         <NumField label="k" value={coulombK} step={0.5} onChange={setCoulombK} />
+      </div>
+      <div className="kctl">
+        <NumField label="g" value={gravity} step={0.5} onChange={setGravity} />
       </div>
       <span className="spacer" />
       <span className={'play-indicator' + (playing ? '' : ' paused')}>

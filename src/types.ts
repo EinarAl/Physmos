@@ -11,6 +11,7 @@ export interface ForceRow {
 export interface PhysicsProps {
   mass: number
   charge: number
+  drag: number
   anchored: boolean
   velocity: Vec3
   forces: ForceRow[]

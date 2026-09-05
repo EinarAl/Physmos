@@ -59,11 +59,32 @@ export function chargeForceOn(
   return f
 }
 
+export function fieldForce(
+  o: PointObj,
+  dyn: Map<string, DynState>,
+  gravity: number,
+): Vec3 {
+  const f: Vec3 = [0, 0, 0]
+  if (o.physics.anchored) return f
+  const m = o.physics.mass > 0 ? o.physics.mass : 1
+  if (gravity !== 0) f[2] -= m * gravity
+  const c = o.physics.drag ?? 0
+  if (c !== 0) {
+    const st = dyn.get(o.id)
+    const v = st ? st.vel : o.physics.velocity
+    f[0] -= c * v[0]
+    f[1] -= c * v[1]
+    f[2] -= c * v[2]
+  }
+  return f
+}
+
 export function stepPhysics(
   objects: SimObject[],
   dyn: Map<string, DynState>,
   dt: number,
   chargeK = 0,
+  gravity = 0,
 ): void {
   const d = Math.min(dt, 0.05)
   for (const o of objects) {
@@ -72,6 +93,10 @@ export function stepPhysics(
     if (!st) continue
     const m = o.physics.mass > 0 ? o.physics.mass : 1
     const f = netForce(o)
+    const ff = fieldForce(o, dyn, gravity)
+    f[0] += ff[0]
+    f[1] += ff[1]
+    f[2] += ff[2]
     if (chargeK !== 0) {
       const qf = chargeForceOn(o, objects, dyn, chargeK)
       f[0] += qf[0]

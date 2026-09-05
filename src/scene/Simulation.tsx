@@ -6,7 +6,7 @@ import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
 import { frenetFrame } from '../engine/frenet'
 import { appendTrail, TRAIL_MAX } from './trails'
 import { useStore } from '../store'
-import { directionAsVec, chargeForceOn, stepPhysics, type DynState } from '../physics/engine'
+import { directionAsVec, chargeForceOn, stepPhysics, fieldForce, type DynState } from '../physics/engine'
 import { AXIS_COLORS, COLORS } from '../theme'
 
 // oxlint-disable react/immutability -- scene objects are imperative and mutated per frame
@@ -62,7 +62,7 @@ function useDynamics(): void {
       reseed(objects)
     }
     if (playing) {
-      stepPhysics(objects, dynRef, delta, useStore.getState().coulombK)
+      stepPhysics(objects, dynRef, delta, useStore.getState().coulombK, useStore.getState().gravity)
       tRef.current += delta
     }
     accRef.current += delta
@@ -196,9 +196,12 @@ function SurfaceMesh({ o }: { o: SurfaceObj }) {
 
 function PointBody({ o }: { o: PointObj }) {
   const selected = useStore((s) => s.selectedId === o.id)
+  const gravity = useStore((s) => s.gravity)
+  const drag = o.physics.drag ?? 0
   const mesh = useRef<THREE.Mesh>(null)
   const arrows = useRef<Array<THREE.ArrowHelper | null>>([])
   const chargeIdx = o.physics.forces.length
+  const fieldIdx = chargeIdx + 1
 
   useFrame(() => {
     const st = dynRef.get(o.id)
@@ -229,6 +232,19 @@ function PointBody({ o }: { o: PointObj }) {
       qArrow.position.set(base[0], base[1], base[2])
       qArrow.setDirection(new THREE.Vector3(...directionAsVec(v)))
       qArrow.setLength(0.35 * mag, 0.22, 0.16)
+    }
+    const fArrow = arrows.current[fieldIdx]
+    if (fArrow) {
+      const v = fieldForce(o, dynRef, useStore.getState().gravity)
+      const mag = Math.hypot(v[0], v[1], v[2])
+      if (mag === 0 || o.physics.anchored) {
+        fArrow.visible = false
+        return
+      }
+      fArrow.visible = true
+      fArrow.position.set(base[0], base[1], base[2])
+      fArrow.setDirection(new THREE.Vector3(...directionAsVec(v)))
+      fArrow.setLength(0.35 * mag, 0.22, 0.16)
     }
   })
 
@@ -264,6 +280,14 @@ function PointBody({ o }: { o: PointObj }) {
             arrows.current[chargeIdx] = el
           }}
           args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(...o.position), 0.5, '#52e0ff', 0.22, 0.16]}
+        />
+      )}
+      {(gravity !== 0 || drag !== 0) && (
+        <arrowHelper
+          ref={(el) => {
+            arrows.current[fieldIdx] = el
+          }}
+          args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(...o.position), 0.5, '#ffa34d', 0.22, 0.16]}
         />
       )}
     </group>

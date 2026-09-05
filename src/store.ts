@@ -44,8 +44,9 @@ function makeInitialObjects(): SimObject[] {
       physics: {
         mass: 1,
         charge: 2,
+        drag: 1,
         anchored: false,
-        velocity: [0.5, 0, 0.4],
+        velocity: [0.5, 0, 4],
         forces: [{ id: nextId(), label: 'F_push', vector: [0, 0, 3] }],
       },
     },
@@ -60,6 +61,7 @@ function makeInitialObjects(): SimObject[] {
       physics: {
         mass: 5,
         charge: -5,
+        drag: 0,
         anchored: true,
         velocity: [0, 0, 0],
         forces: [],
@@ -94,6 +96,7 @@ interface AppStore {
   livePos: Record<string, Vec3>
   engineVersion: number
   coulombK: number
+  gravity: number
   frameOn: boolean
   frameT: number
   trailsOn: boolean
@@ -106,6 +109,7 @@ interface AppStore {
   setTime: (t: number) => void
   setLivePos: (rec: Record<string, Vec3>) => void
   setCoulombK: (k: number) => void
+  setGravity: (g: number) => void
   setFrameOn: (on: boolean) => void
   setFrameT: (t: number) => void
   setTrailsOn: (on: boolean) => void
@@ -125,6 +129,7 @@ export const useStore = create<AppStore>((set) => ({
   livePos: {},
   engineVersion: 0,
   coulombK: 40,
+  gravity: 9.81,
   frameOn: false,
   frameT: 0,
   trailsOn: true,
@@ -155,6 +160,7 @@ export const useStore = create<AppStore>((set) => ({
   setTime: (time) => set({ time }),
   setLivePos: (livePos) => set({ livePos }),
   setCoulombK: (coulombK) => set({ coulombK }),
+  setGravity: (gravity) => set({ gravity }),
   setFrameOn: (frameOn) => set({ frameOn }),
   setFrameT: (frameT) => set({ frameT }),
   setTrailsOn: (trailsOn) => set({ trailsOn }),

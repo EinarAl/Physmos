@@ -46,7 +46,7 @@ export function AddBar() {
         ...base,
         size: 0.25,
         position: [p[0], p[1], p[2]],
-        physics: { mass: 1, charge: 0, anchored: false, velocity: [0, 0, 0], forces: [] },
+        physics: { mass: 1, charge: 0, drag: 0, anchored: false, velocity: [0, 0, 0], forces: [] },
       }
     } else if (cls.type === 'curve') {
       obj = {
