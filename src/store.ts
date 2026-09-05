@@ -94,6 +94,8 @@ interface AppStore {
   livePos: Record<string, Vec3>
   engineVersion: number
   coulombK: number
+  frameOn: boolean
+  frameT: number
   select: (id: string | null) => void
   addObject: (o: SimObject) => void
   updateObject: (id: string, patch: ObjectPatch) => void
@@ -102,6 +104,8 @@ interface AppStore {
   setTime: (t: number) => void
   setLivePos: (rec: Record<string, Vec3>) => void
   setCoulombK: (k: number) => void
+  setFrameOn: (on: boolean) => void
+  setFrameT: (t: number) => void
   resetSim: () => void
 }
 
@@ -117,6 +121,8 @@ export const useStore = create<AppStore>((set) => ({
   livePos: {},
   engineVersion: 0,
   coulombK: 40,
+  frameOn: false,
+  frameT: 0,
   select: (id) => set({ selectedId: id }),
   addObject: (o) => set((s) => ({ objects: [...s.objects, o], selectedId: o.id })),
   updateObject: (id, patch) =>
@@ -143,6 +149,8 @@ export const useStore = create<AppStore>((set) => ({
   setTime: (time) => set({ time }),
   setLivePos: (livePos) => set({ livePos }),
   setCoulombK: (coulombK) => set({ coulombK }),
+  setFrameOn: (frameOn) => set({ frameOn }),
+  setFrameT: (frameT) => set({ frameT }),
   resetSim: () =>
     set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1 })),
 }))

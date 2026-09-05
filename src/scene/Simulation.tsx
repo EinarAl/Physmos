@@ -3,6 +3,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
 import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
+import { frenetFrame } from '../engine/frenet'
 import { useStore } from '../store'
 import { directionAsVec, chargeForceOn, stepPhysics, type DynState } from '../physics/engine'
 import { AXIS_COLORS, COLORS } from '../theme'
@@ -150,6 +151,29 @@ function CurveMesh({ o }: { o: CurveObj }) {
   )
 }
 
+function CurveFrame({ o }: { o: CurveObj }) {
+  const t = useStore((s) => s.frameT)
+  const fr = useMemo(() => {
+    try { return frenetFrame(o, t) } catch { return null }
+  }, [o, t])
+  if (!fr) return null
+  const T = new THREE.Vector3(...fr.T)
+  const N = new THREE.Vector3(...fr.N)
+  const B = new THREE.Vector3(...fr.B)
+  const origin = new THREE.Vector3(...fr.pos)
+  return (
+    <group>
+      <mesh position={origin}>
+        <sphereGeometry args={[0.1, 12, 12]} />
+        <meshStandardMaterial color="#ffffff" emissive="#aaaaaa" emissiveIntensity={0.6} />
+      </mesh>
+      <arrowHelper args={[T, origin, 1.2, '#ff6b6b', 0.25, 0.15]} />
+      <arrowHelper args={[N, origin, 0.9, '#5dff7d', 0.25, 0.15]} />
+      <arrowHelper args={[B, origin, 0.9, '#c58aff', 0.25, 0.15]} />
+    </group>
+  )
+}
+
 function SurfaceMesh({ o }: { o: SurfaceObj }) {
   const build = useMemo(() => buildSurfaceGeometry(o), [o])
   useError(build, o.id)
@@ -245,11 +269,18 @@ function PointBody({ o }: { o: PointObj }) {
 
 function WorldObjects() {
   const objects = useStore((s) => s.objects)
+  const selectedId = useStore((s) => s.selectedId)
+  const frameOn = useStore((s) => s.frameOn)
   return (
     <group>
       {objects.map((o) => {
         if (o.kind === 'point') return <PointBody key={o.id} o={o} />
-        if (o.kind === 'curve') return <CurveMesh key={o.id} o={o} />
+        if (o.kind === 'curve') return (
+          <group key={o.id}>
+            <CurveMesh o={o} />
+            {selectedId === o.id && frameOn && <CurveFrame o={o} />}
+          </group>
+        )
         return <SurfaceMesh key={o.id} o={o} />
       })}
     </group>

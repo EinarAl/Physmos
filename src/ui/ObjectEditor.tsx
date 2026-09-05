@@ -4,6 +4,8 @@ import { useStore } from '../store'
 import { PRESET_COLORS } from '../theme'
 import { nextId } from '../store'
 import { NumField } from './NumField'
+import { frenetFrame } from '../engine/frenet'
+import { useMemo } from 'react'
 
 function VecEditor({
   label,
@@ -201,7 +203,17 @@ function PointEditor({ o }: { o: PointObj }) {
 
 function CurveEditor({ o }: { o: CurveObj }) {
   const updateObject = useStore((s) => s.updateObject)
+  const frameOn = useStore((s) => s.frameOn)
+  const frameT = useStore((s) => s.frameT)
+  const setFrameOn = useStore((s) => s.setFrameOn)
+  const setFrameT = useStore((s) => s.setFrameT)
   const patch = (p: ObjectPatch) => updateObject(o.id, p)
+
+  const fr = useMemo(() => {
+    if (!frameOn) return null
+    try { return frenetFrame(o, frameT) } catch { return null }
+  }, [o, frameT, frameOn])
+
   return (
     <>
       <div className="field">
@@ -217,6 +229,36 @@ function CurveEditor({ o }: { o: CurveObj }) {
       <div className="hint">
         try <code>(R*sin(t), R*cos(t), vd*t)</code> with <code>R=3, vd=0.9</code>
       </div>
+      <div className="field" style={{ marginTop: 10, borderTop: '1px solid #2a2e38', paddingTop: 10 }}>
+        <label>Frenet frame</label>
+        <div className="check">
+          <input
+            type="checkbox"
+            checked={frameOn}
+            onChange={(e) => {
+              const on = e.target.checked
+              setFrameOn(on)
+              if (on) setFrameT((o.range[0] + o.range[1]) / 2)
+            }}
+          />
+          show T, N, B on curve
+        </div>
+      </div>
+      {frameOn && (
+        <>
+          <NumField label="t on curve" value={frameT} step={0.1} onChange={setFrameT} />
+          {fr ? (
+            <div className="live-pos">
+              {'\u03BA'} = {fr.kappa.toFixed(4)} &middot; {'\u03C4'} = {fr.tau.toFixed(4)}
+            </div>
+          ) : (
+            <div className="hint">degenerate at this t (straight or static)</div>
+          )}
+          <div className="hint">
+            T (red) tangent &middot; N (green) normal &middot; B (purple) binormal. {'\u03C4'} = how fast the osculating plane twists about T (0 = planar)
+          </div>
+        </>
+      )}
     </>
   )
 }
