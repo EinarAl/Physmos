@@ -6,6 +6,7 @@ import { Sidebar } from './ui/Sidebar'
 import { Simulation } from './scene/Simulation'
 import { SceneIO } from './ui/SceneIO'
 import { HelpModal } from './ui/HelpModal'
+import { SceneHUD } from './ui/SceneHUD'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <OrbitControls makeDefault enableDamping dampingFactor={0.12} />
             <Simulation />
           </Canvas>
+          <SceneHUD />
         </div>
       </div>
     </div>

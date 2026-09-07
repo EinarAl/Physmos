@@ -8,6 +8,7 @@ import { appendTrail, TRAIL_MAX } from './trails'
 import { useStore } from '../store'
 import { directionAsVec, chargeForceOn, stepPhysics, fieldForce, type DynState } from '../physics/engine'
 import { AXIS_COLORS, COLORS } from '../theme'
+import { hudCamera } from '../ui/hudState'
 
 // oxlint-disable react/immutability -- scene objects are imperative and mutated per frame
 
@@ -85,21 +86,26 @@ function useDynamics(): void {
 function makeLabelTexture(text: string, color: string): THREE.Sprite {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
-  const fp = 120
+  const fp = 84
   ctx.font = 'bold ' + fp + 'px Arial'
-  const w = Math.ceil(ctx.measureText(text).width) + 40
-  const h = 160
+  const w = Math.ceil(ctx.measureText(text).width) + 28
+  const h = 120
   canvas.width = w
   canvas.height = h
   ctx.font = 'bold ' + fp + 'px Arial'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = color
+  ctx.shadowColor = color
+  ctx.shadowBlur = 16
+  ctx.shadowOffsetY = 0
+  ctx.fillText(text, w / 2, h / 2 + 4)
+  ctx.shadowBlur = 0
   ctx.fillText(text, w / 2, h / 2 + 4)
   const tex = new THREE.CanvasTexture(canvas)
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false })
   const sp = new THREE.Sprite(mat)
-  sp.scale.set(0.9 * (w / h), 0.9, 1)
+  sp.scale.set(0.62 * (w / h), 0.62, 1)
   return sp
 }
 
@@ -134,14 +140,29 @@ function useError(effect: { error?: string } | null, id: string) {
 }
 
 function CurveMesh({ o }: { o: CurveObj }) {
+  const selected = useStore((s) => s.selectedId === o.id)
   const build = useMemo(() => buildCurveGeometry(o), [o])
   const lineObj = useMemo(() => {
     if (!build.geometry) return null
-    const line = new THREE.Line(build.geometry, new THREE.LineBasicMaterial({ color: o.color }))
+    const line = new THREE.Line(
+      build.geometry,
+      new THREE.LineBasicMaterial({
+        color: o.color,
+        transparent: true,
+        opacity: 0.92,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    )
     void build
     return line
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [build.geometry, o.color])
+  const mat = lineObj?.material as THREE.LineBasicMaterial | null
+  useEffect(() => {
+    if (mat) mat.opacity = selected ? 1 : 0.92
+  }, [selected, mat])
   useError(build, o.id)
   if (!lineObj || !o.visible) return null
   return (
@@ -179,19 +200,78 @@ function CurveFrame({ o }: { o: CurveObj }) {
 }
 
 function SurfaceMesh({ o }: { o: SurfaceObj }) {
+  const selected = useStore((s) => s.selectedId === o.id)
   const build = useMemo(() => buildSurfaceGeometry(o), [o])
   useError(build, o.id)
+  const wireMat = useRef<THREE.LineBasicMaterial>(null)
+  const meshMat = useRef<THREE.MeshStandardMaterial>(null)
+  useEffect(() => {
+    if (wireMat.current) wireMat.current.opacity = selected ? 0.62 : 0.38
+    if (meshMat.current) meshMat.current.emissiveIntensity = selected ? 0.32 : 0.14
+  }, [selected])
+  const wire = useMemo(() => {
+    if (!build.geometry) return null
+    const pos = build.geometry.getAttribute('position') as THREE.BufferAttribute
+    if (!pos) return null
+    const na = o.resolution[0]
+    const nb = o.resolution[1]
+    const nx = na + 1
+    // cap on-screen line density to avoid moire regardless of source resolution
+    const si = Math.max(1, Math.ceil(na / 18))
+    const sj = Math.max(1, Math.ceil(nb / 18))
+    const indices: number[] = []
+    for (let i = 0; i <= na; i += si) {
+      for (let j = 0; j < nb; j += sj) {
+        indices.push((i * nx + j) * 3, (i * nx + j + 1) * 3)
+      }
+    }
+    for (let i = 0; i < na; i += si) {
+      for (let j = 0; j <= nb; j += sj) {
+        indices.push((i * nx + j) * 3, ((i + 1) * nx + j) * 3)
+      }
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(pos.array.slice() as Float32Array, 3))
+    g.setIndex(indices)
+    return g
+  }, [build, o])
   if (!build.geometry || !o.visible) return null
   return (
-    <mesh
-      geometry={build.geometry}
+    <group
       onClick={(e) => {
         e.stopPropagation()
         useStore.getState().select(o.id)
       }}
     >
-      <meshStandardMaterial color={o.color} side={THREE.DoubleSide} roughness={0.85} metalness={0.1} />
-    </mesh>
+      <mesh geometry={build.geometry}>
+        <meshStandardMaterial
+          ref={meshMat}
+          color={o.color}
+          side={THREE.DoubleSide}
+          roughness={0.9}
+          metalness={0}
+          emissive={o.color}
+          emissiveIntensity={0.14}
+          transparent
+          opacity={0.04}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      {wire && (
+        <lineSegments geometry={wire}>
+          <lineBasicMaterial
+            ref={wireMat}
+            color={o.color}
+            transparent
+            opacity={0.38}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </lineSegments>
+      )}
+    </group>
   )
 }
 
@@ -256,8 +336,11 @@ function PointBody({ o }: { o: PointObj }) {
         <sphereGeometry args={[o.size, 16, 16]} />
         <meshStandardMaterial
           color={o.color}
-          emissive={selected ? '#3a3a3a' : '#000000'}
-          emissiveIntensity={selected ? 1 : 0}
+          emissive={o.color}
+          emissiveIntensity={selected ? 0.85 : 0.4}
+          roughness={0.55}
+          metalness={0.1}
+          toneMapped={false}
         />
       </mesh>
       {o.physics.forces.map((row, i) => (
@@ -325,7 +408,14 @@ const line = useMemo(() => {
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3))
     return new THREE.Line(
       geo,
-      new THREE.LineBasicMaterial({ color: o.color, transparent: true, opacity: 0.8, depthWrite: false }),
+      new THREE.LineBasicMaterial({
+        color: o.color,
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
     )
   }, [o.color])
 
@@ -368,6 +458,116 @@ function Trails() {
   )
 }
 
+function makeStarTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 64
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')!
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  g.addColorStop(0, 'rgba(255, 248, 235, 1)')
+  g.addColorStop(0.18, 'rgba(200, 228, 255, 0.9)')
+  g.addColorStop(0.55, 'rgba(160, 205, 255, 0.22)')
+  g.addColorStop(1, 'rgba(140, 195, 255, 0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 64, 64)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+const STARS_OBJECT = (() => {
+  const n = 120
+  const mat = new THREE.SpriteMaterial({
+    map: makeStarTexture(),
+    color: '#a9ccff',
+    transparent: true,
+    opacity: 0.9,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    fog: false,
+    toneMapped: false,
+  })
+  const camPos = new THREE.Vector3(7, -7, 6)
+  const dir = new THREE.Vector3(0, 0, 0).sub(camPos).normalize()
+  const ref = new THREE.Vector3(0, 0, 1)
+  const axis = new THREE.Vector3().crossVectors(ref, dir)
+  const angle = Math.acos(ref.dot(dir))
+  const q = new THREE.Quaternion().setFromAxisAngle(
+    axis.lengthSq() > 1e-8 ? axis.normalize() : new THREE.Vector3(1, 0, 0),
+    axis.lengthSq() > 1e-8 ? angle : dir.z > 0 ? 0 : Math.PI,
+  )
+  const group = new THREE.Group()
+  group.name = 'physmos-stars'
+  for (let i = 0; i < n; i++) {
+    // random direction within a ~45deg cone around the default view direction
+    const r = 42 + Math.random() * 20
+    const theta = Math.random() * Math.PI * 2
+    const cone = Math.random() * 0.75
+    const local = new THREE.Vector3(
+      Math.sin(cone) * Math.cos(theta),
+      Math.sin(cone) * Math.sin(theta),
+      Math.cos(cone),
+    )
+    local.applyQuaternion(q)
+    const sp = new THREE.Sprite(mat)
+    sp.position.copy(local.multiplyScalar(r))
+    sp.scale.set(0.7 + Math.random() * 0.4, 0.7 + Math.random() * 0.4, 1)
+    group.add(sp)
+  }
+  return group
+})()
+
+function Stars() {
+  return <primitive object={STARS_OBJECT} />
+}
+
+function makeGlowTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')!
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128)
+  g.addColorStop(0, 'rgba(180, 216, 255, 0.9)')
+  g.addColorStop(0.35, 'rgba(110, 170, 255, 0.35)')
+  g.addColorStop(1, 'rgba(90, 150, 255, 0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 256, 256)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+function HorizonGlow() {
+  const sprite = useMemo(() => {
+    const mat = new THREE.SpriteMaterial({
+      map: makeGlowTexture(),
+      color: '#6fa4ff',
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+    const sp = new THREE.Sprite(mat)
+    sp.scale.set(14, 14, 1)
+    return sp
+  }, [])
+  return <primitive object={sprite} position={[0, -0.6, -0.6]} />
+}
+
+function HudProbe() {
+  const { camera, controls } = useThree()
+  useFrame(() => {
+    const target = (controls as { target?: THREE.Vector3 } | null)?.target
+    const dir = camera.position.clone().sub(target ?? new THREE.Vector3())
+    const len = dir.length()
+    if (len < 1e-6) return
+    hudCamera.az = (Math.atan2(dir.y, dir.x) * 180) / Math.PI
+    hudCamera.el = (Math.asin(dir.z / len) * 180) / Math.PI
+  })
+  return null
+}
+
 export function Simulation() {
   useDynamics()
   const gridOn = useStore((s) => s.gridOn)
@@ -383,9 +583,14 @@ export function Simulation() {
   return (
     <>
       <color attach="background" args={[COLORS.bg]} />
-      <ambientLight intensity={0.65} />
-      <directionalLight position={[6, 10, 12]} intensity={1.4} />
-      <directionalLight position={[-6, -4, 6]} intensity={0.5} color="#9db8ff" />
+      <fog attach="fog" args={[COLORS.bg, 30, 64]} />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[7, -9, 12]} intensity={1.5} />
+      <directionalLight position={[-6, -4, 6]} intensity={0.6} color="#9db8ff" />
+      <directionalLight position={[-2, 2, -8]} intensity={0.7} color="#7aa2ff" />
+      <Stars />
+      <HorizonGlow />
+      <HudProbe />
       {gridOn && <gridHelper args={[22, 22, COLORS.gridMajor, COLORS.gridMinor]} rotation={[Math.PI / 2, 0, 0]} />}
       <Axes />
       <Trails />

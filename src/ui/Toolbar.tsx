@@ -31,11 +31,18 @@ export function Toolbar() {
       <div className="brand">
         phys<span>mos</span>
       </div>
-      <button className="btn primary" onClick={() => setPlaying(!playing)}>
-        {playing ? '\u23f8  Pause' : '\u25b8  Play'}
+      <span className="brand-tag">graph lab</span>
+      <span className="sep" />
+      <button
+        className="btn icon play"
+        aria-label={playing ? 'Pause' : 'Play'}
+        title={playing ? 'Pause simulation' : 'Play simulation'}
+        onClick={() => setPlaying(!playing)}
+      >
+        {playing ? '\u23f8' : '\u25b8'}
       </button>
-      <button className="btn" onClick={resetSim}>
-        {'\u21ba'} Reset
+      <button className="btn icon" aria-label="Reset" title="reset time and state" onClick={resetSim}>
+        {'\u21ba'}
       </button>
       <div className="kctl speed">
         <label htmlFor="speed">speed</label>
@@ -50,10 +57,11 @@ export function Toolbar() {
         />
         <span className="speed-val">{timeScale.toFixed(1)}{'\u00d7'}</span>
       </div>
-      <div className="kctl">
+      <span className="sep" />
+      <div className="kctl pill">
         <NumField label="k" value={coulombK} step={0.5} onChange={setCoulombK} />
       </div>
-      <div className="kctl">
+      <div className="kctl pill">
         <NumField label="g" value={gravity} step={0.5} onChange={setGravity} />
       </div>
       <button className={'btn' + (trailsOn ? ' toggled' : '')} onClick={() => setTrailsOn(!trailsOn)}>
@@ -66,8 +74,8 @@ export function Toolbar() {
         {'\u2295'} Grid
       </button>
       <span className="sep" />
-      <button className="btn" onClick={triggerResetView} title="reset camera">
-        {'\u2299'} View
+      <button className="btn icon" aria-label="View" title="reset camera" onClick={triggerResetView}>
+        {'\u2299'}
       </button>
       <button className="btn" onClick={loadDemo} title="reload the demo scene">
         Demo

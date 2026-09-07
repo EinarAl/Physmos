@@ -1,0 +1,1 @@
+export const hudCamera = { az: 0, el: 0 }

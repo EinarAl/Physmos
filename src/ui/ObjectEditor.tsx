@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { CurveObj, ForceRow, PointObj, SurfaceObj, Vec3 } from '../types'
 import type { ObjectPatch } from '../store'
 import { useStore } from '../store'
@@ -6,6 +7,23 @@ import { nextId } from '../store'
 import { NumField } from './NumField'
 import { frenetFrame } from '../engine/frenet'
 import { useMemo } from 'react'
+
+function Section({
+  title,
+  defaultOpen,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  return (
+    <details className="section" open={defaultOpen}>
+      <summary>{title}</summary>
+      <div className="body">{children}</div>
+    </details>
+  )
+}
 
 function VecEditor({
   label,
@@ -42,7 +60,7 @@ function ForceEditor({
   return (
     <div className="force-row">
       <div className="force-head">
-        <span style={{ fontSize: 11, width: 26, color: '#8a93a3' }}>F{index + 1}</span>
+        <span style={{ fontSize: 11, width: 26, color: '#98a3ba' }}>F{index + 1}</span>
         <input
           className="text-input"
           value={row.label}
@@ -64,7 +82,7 @@ function ForceEditor({
           />
         ))}
       </div>
-      <div className="hint">force at particle, drawn as a free-body arrow</div>
+      <div className="hint">constant force at the particle, drawn as a free-body arrow</div>
     </div>
   )
 }
@@ -78,7 +96,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
           <button
             key={c}
             className={c === value ? 'active' : ''}
-            style={{ background: c }}
+            style={{ background: c, color: c }}
             onClick={() => onChange(c)}
           />
         ))}
@@ -116,93 +134,104 @@ function PointEditor({ o }: { o: PointObj }) {
 
   return (
     <>
-      <NumField label="radius" value={o.size} step={0.05} onChange={(v) => patch({ size: v })} />
-      <VecEditor
-        label="position"
-        value={o.position}
-        onChange={(v) => patch({ position: v })}
-      />
-      {live && <div className="live-pos">live ({(live[0].toFixed(2))}, {(live[1].toFixed(2))}, {(live[2].toFixed(2))})</div>}
-      <div className="field">
-        <label>free body</label>
-        <div className="check">
-          <input
-            type="checkbox"
-            checked={o.physics.anchored}
-            onChange={(e) => patch({ physics: { anchored: e.target.checked } })}
-          />
-          anchored (fixed)
-        </div>
-      </div>
-      <NumField
-        label="mass"
-        value={o.physics.mass}
-        step={0.1}
-        onChange={(v) => patch({ physics: { mass: v } })}
-      />
-      <NumField
-        label="charge (q)"
-        value={o.physics.charge}
-        step={0.5}
-        onChange={(v) => patch({ physics: { charge: v } })}
-      />
-      <NumField
-        label="drag (c)"
-        value={o.physics.drag ?? 0}
-        step={0.1}
-        onChange={(v) => patch({ physics: { drag: v } })}
-      />
-      <div className="field">
-        <label>initial velocity (dx, dy, dz)</label>
-        <div className="row">
-          {o.physics.velocity.map((n, i) => (
-            <NumField
-              key={i}
-              value={n}
-              onChange={(v) =>
-                patch({
-                  physics: {
-                    velocity: o.physics.velocity.map((c, j) => (j === i ? v : c)) as Vec3,
-                  },
-                })
-              }
+      <Section title="appearance" defaultOpen>
+        <NumField label="radius" value={o.size} step={0.05} onChange={(v) => patch({ size: v })} />
+        <ColorPicker value={o.color} onChange={(c) => patch({ color: c })} />
+      </Section>
+      <Section title="spatial">
+        <VecEditor
+          label="position"
+          value={o.position}
+          onChange={(v) => patch({ position: v })}
+        />
+        {live && (
+          <div className="live-pos">
+            live ({live[0].toFixed(2)}, {live[1].toFixed(2)}, {live[2].toFixed(2)})
+          </div>
+        )}
+      </Section>
+      <Section title="dynamics">
+        <div className="field">
+          <label>free body</label>
+          <div className="check">
+            <input
+              type="checkbox"
+              checked={o.physics.anchored}
+              onChange={(e) => patch({ physics: { anchored: e.target.checked } })}
             />
-          ))}
+            anchored (fixed)
+          </div>
         </div>
-      </div>
-      {o.physics.forces.map((row, i) => (
-        <ForceEditor
-          key={row.id}
-          index={i}
-          row={row}
-          onChange={(r) =>
+        <NumField
+          label="mass"
+          value={o.physics.mass}
+          step={0.1}
+          onChange={(v) => patch({ physics: { mass: v } })}
+        />
+        <NumField
+          label="charge (q)"
+          value={o.physics.charge}
+          step={0.5}
+          onChange={(v) => patch({ physics: { charge: v } })}
+        />
+        <NumField
+          label="drag (c)"
+          value={o.physics.drag ?? 0}
+          step={0.1}
+          onChange={(v) => patch({ physics: { drag: v } })}
+        />
+        <div className="field">
+          <label>initial velocity (dx, dy, dz)</label>
+          <div className="row">
+            {o.physics.velocity.map((n, i) => (
+              <NumField
+                key={i}
+                value={n}
+                onChange={(v) =>
+                  patch({
+                    physics: {
+                      velocity: o.physics.velocity.map((c, j) => (j === i ? v : c)) as Vec3,
+                    },
+                  })
+                }
+              />
+            ))}
+          </div>
+        </div>
+        {o.physics.forces.map((row, i) => (
+          <ForceEditor
+            key={row.id}
+            index={i}
+            row={row}
+            onChange={(r) =>
+              patch({
+                physics: {
+                  forces: o.physics.forces.map((f) => (f.id === r.id ? r : f)),
+                },
+              })
+            }
+            onRemove={() =>
+              patch({ physics: { forces: o.physics.forces.filter((f) => f.id !== row.id) } })
+            }
+          />
+        ))}
+        <button
+          className="btn"
+          onClick={() =>
             patch({
               physics: {
-                forces: o.physics.forces.map((f) => (f.id === r.id ? r : f)),
+                forces: [...o.physics.forces, { id: nextId(), label: 'F', vector: [0, 0, 1] }],
               },
             })
           }
-          onRemove={() =>
-            patch({ physics: { forces: o.physics.forces.filter((f) => f.id !== row.id) } })
-          }
-        />
-      ))}
-      <button
-        className="btn"
-        onClick={() =>
-          patch({
-            physics: {
-              forces: [...o.physics.forces, { id: nextId(), label: 'F', vector: [0, 0, 1] }],
-            },
-          })
-        }
-      >
-        + force
-      </button>
-      <div className="hint">
-        play to integrate: a = F/m, p += v dt. charged bodies pull on each other (k in toolbar). anchored
-        bodies ignore forces.
-      </div>
+        >
+          + force
+        </button>
+        <div className="hint">
+          play to integrate: a = F/m. charged bodies pull on each other (k in toolbar); g adds gravity
+          down; drag opposes motion. anchored bodies ignore forces.
+        </div>
+      </Section>
     </>
   )
 }
@@ -217,26 +246,34 @@ function CurveEditor({ o }: { o: CurveObj }) {
 
   const fr = useMemo(() => {
     if (!frameOn) return null
-    try { return frenetFrame(o, frameT) } catch { return null }
+    try {
+      return frenetFrame(o, frameT)
+    } catch {
+      return null
+    }
   }, [o, frameT, frameOn])
 
   return (
     <>
-      <div className="field">
-        <label>r(t) = (fx, fy, fz)</label>
-        <input className="text-input" value={o.expr} onChange={(e) => patch({ expr: e.target.value })} />
-      </div>
-      <div className="field">
-        <label>constants (k=v, ...)</label>
-        <input className="text-input" value={o.params} onChange={(e) => patch({ params: e.target.value })} />
-      </div>
-      <RangeEditor label="t range" range={o.range} onChange={(r) => patch({ range: r })} />
-      <NumField label="samples" value={o.samples} step={50} onChange={(v) => patch({ samples: v })} />
-      <div className="hint">
-        try <code>(R*sin(t), R*cos(t), vd*t)</code> with <code>R=3, vd=0.9</code>
-      </div>
-      <div className="field" style={{ marginTop: 10, borderTop: '1px solid #2a2e38', paddingTop: 10 }}>
-        <label>Frenet frame</label>
+      <Section title="appearance" defaultOpen>
+        <ColorPicker value={o.color} onChange={(c) => patch({ color: c })} />
+      </Section>
+      <Section title="expression">
+        <div className="field">
+          <label>r(t) = (fx, fy, fz)</label>
+          <input className="text-input" value={o.expr} onChange={(e) => patch({ expr: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>constants (k=v, ...)</label>
+          <input className="text-input" value={o.params} onChange={(e) => patch({ params: e.target.value })} />
+        </div>
+        <RangeEditor label="t range" range={o.range} onChange={(r) => patch({ range: r })} />
+        <NumField label="samples" value={o.samples} step={50} onChange={(v) => patch({ samples: v })} />
+        <div className="hint">
+          try <code>(R*sin(t), R*cos(t), vd*t)</code> with <code>R=3, vd=0.9</code>
+        </div>
+      </Section>
+      <Section title="frenet frame">
         <div className="check">
           <input
             type="checkbox"
@@ -249,22 +286,22 @@ function CurveEditor({ o }: { o: CurveObj }) {
           />
           show T, N, B on curve
         </div>
-      </div>
-      {frameOn && (
-        <>
-          <NumField label="t on curve" value={frameT} step={0.1} onChange={setFrameT} />
-          {fr ? (
-            <div className="live-pos">
-              {'\u03BA'} = {fr.kappa.toFixed(4)} &middot; {'\u03C4'} = {fr.tau.toFixed(4)}
+        {frameOn && (
+          <>
+            <NumField label="t on curve" value={frameT} step={0.1} onChange={setFrameT} />
+            {fr ? (
+              <div className="live-pos">
+                {'\u03BA'} = {fr.kappa.toFixed(4)} &middot; {'\u03C4'} = {fr.tau.toFixed(4)}
+              </div>
+            ) : (
+              <div className="hint">degenerate at this t (straight or static)</div>
+            )}
+            <div className="hint">
+              T (red) tangent &middot; N (green) normal &middot; B (purple) binormal. {'\u03C4'} = how fast the osculating plane twists about T (0 = planar)
             </div>
-          ) : (
-            <div className="hint">degenerate at this t (straight or static)</div>
-          )}
-          <div className="hint">
-            T (red) tangent &middot; N (green) normal &middot; B (purple) binormal. {'\u03C4'} = how fast the osculating plane twists about T (0 = planar)
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </Section>
     </>
   )
 }
@@ -274,45 +311,50 @@ function SurfaceEditor({ o }: { o: SurfaceObj }) {
   const patch = (p: ObjectPatch) => updateObject(o.id, p)
   return (
     <>
-      <div className="field">
-        <label>mode</label>
-        <div className="check">
-          <input
-            type="radio"
-            checked={o.mode === 'explicit'}
-            onChange={() => patch({ mode: 'explicit' })}
-          />
-          z = f(x, y)
-          <input
-            type="radio"
-            checked={o.mode === 'parametric'}
-            onChange={() => patch({ mode: 'parametric' })}
-          />
-          r(u, v)
+      <Section title="appearance" defaultOpen>
+        <ColorPicker value={o.color} onChange={(c) => patch({ color: c })} />
+      </Section>
+      <Section title="expression">
+        <div className="field">
+          <label>mode</label>
+          <div className="check">
+            <input
+              type="radio"
+              checked={o.mode === 'explicit'}
+              onChange={() => patch({ mode: 'explicit' })}
+            />
+            z = f(x, y)
+            <input
+              type="radio"
+              checked={o.mode === 'parametric'}
+              onChange={() => patch({ mode: 'parametric' })}
+            />
+            r(u, v)
+          </div>
         </div>
-      </div>
-      <div className="field">
-        <label>{o.mode === 'explicit' ? 'f(x, y)' : 'r(u, v) = (fx, fy, fz)'}</label>
-        <input className="text-input" value={o.expr} onChange={(e) => patch({ expr: e.target.value })} />
-      </div>
-      <div className="field">
-        <label>constants (k=v, ...)</label>
-        <input className="text-input" value={o.params} onChange={(e) => patch({ params: e.target.value })} />
-      </div>
-      <RangeEditor
-        label={o.mode === 'explicit' ? 'x range' : 'u range'}
-        range={o.rangeA}
-        onChange={(r) => patch({ rangeA: r })}
-      />
-      <RangeEditor
-        label={o.mode === 'explicit' ? 'y range' : 'v range'}
-        range={o.rangeB}
-        onChange={(r) => patch({ rangeB: r })}
-      />
-      <div className="row">
-        <NumField label="res u/x" value={o.resolution[0]} step={10} onChange={(v) => patch({ resolution: [v, o.resolution[1]] })} />
-        <NumField label="res v/y" value={o.resolution[1]} step={10} onChange={(v) => patch({ resolution: [o.resolution[0], v] })} />
-      </div>
+        <div className="field">
+          <label>{o.mode === 'explicit' ? 'f(x, y)' : 'r(u, v) = (fx, fy, fz)'}</label>
+          <input className="text-input" value={o.expr} onChange={(e) => patch({ expr: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>constants (k=v, ...)</label>
+          <input className="text-input" value={o.params} onChange={(e) => patch({ params: e.target.value })} />
+        </div>
+        <RangeEditor
+          label={o.mode === 'explicit' ? 'x range' : 'u range'}
+          range={o.rangeA}
+          onChange={(r) => patch({ rangeA: r })}
+        />
+        <RangeEditor
+          label={o.mode === 'explicit' ? 'y range' : 'v range'}
+          range={o.rangeB}
+          onChange={(r) => patch({ rangeB: r })}
+        />
+        <div className="row">
+          <NumField label="res u/x" value={o.resolution[0]} step={10} onChange={(v) => patch({ resolution: [v, o.resolution[1]] })} />
+          <NumField label="res v/y" value={o.resolution[1]} step={10} onChange={(v) => patch({ resolution: [o.resolution[0], v] })} />
+        </div>
+      </Section>
     </>
   )
 }
@@ -335,7 +377,7 @@ export function ObjectEditor() {
   return (
     <div className="editor">
       <div className="editor-title">
-        {selected.kind} · {selected.name}
+        <span className="k">{selected.kind}</span> &middot; {selected.name}
       </div>
       <div className="field">
         <label>name</label>
@@ -349,7 +391,6 @@ export function ObjectEditor() {
         />
         visible
       </div>
-      <ColorPicker value={selected.color} onChange={(c) => patch({ color: c })} />
       {selected.kind === 'point' && <PointEditor o={selected} />}
       {selected.kind === 'curve' && <CurveEditor o={selected} />}
       {selected.kind === 'surface' && <SurfaceEditor o={selected} />}
