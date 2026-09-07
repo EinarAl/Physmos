@@ -95,6 +95,16 @@ stepPhysics([ca, cb], dynS, 1, 40)
 check('charged mover accelerates toward sink', dynS.get('ca').vel[0] > 0)
 check('k=0 disables charge force', chargeForceOn(ca, [ca, cb], dynC, 0)[0] === 0)
 
+// --- hidden points "do not exist" ---
+const hiddenSink = { ...cb, visible: false }
+check('hidden object exerts no charge', JSON.stringify(chargeForceOn(ca, [ca, hiddenSink], dynC, 40)) === JSON.stringify([0, 0, 0]))
+check('hidden object receives no charge', JSON.stringify(chargeForceOn(hiddenSink, [ca, hiddenSink], dynC, 40)) === JSON.stringify([0, 0, 0]))
+const hiddenFree = { ...point, visible: false }
+check('hidden object feels no fields', JSON.stringify(fieldForce(hiddenFree, dynC, 9.81)) === JSON.stringify([0, 0, 0]))
+const dynH = new Map([['p1', { pos: [3, 4, 5], vel: [0, 0, 10] }]])
+stepPhysics([{ ...point, visible: false, physics: { mass: 1, drag: 0, anchored: false, charge: 0, velocity: [0, 0, 10], forces: [] } } as any], dynH, 0.05, 0, 9.81)
+check('hidden point never steps', dynH.get('p1').pos[0] === 3 && dynH.get('p1').pos[1] === 4 && dynH.get('p1').pos[2] === 5 && dynH.get('p1').vel[2] === 10)
+
 // --- Frenet frame (Problem 9 checks) ---
 const circle: any = {
   id: 'c1', kind: 'curve', name: 'circle', color: '#fff', visible: true,

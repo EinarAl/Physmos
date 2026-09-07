@@ -249,6 +249,7 @@ function PointBody({ o }: { o: PointObj }) {
     }
   })
 
+  if (!o.visible) return null
   return (
     <group>
       <mesh ref={mesh} onClick={(e) => { e.stopPropagation(); useStore.getState().select(o.id) }}>
@@ -348,6 +349,7 @@ const line = useMemo(() => {
     geo.setDrawRange(0, n.current)
     geo.computeBoundingSphere()
   })
+  if (!o.visible) return null
   return <primitive object={line} />
 }
 

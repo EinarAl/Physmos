@@ -40,9 +40,11 @@ export function chargeForceOn(
 ): Vec3 {
   const f: Vec3 = [0, 0, 0]
   if (o.physics.charge === 0) return f
+  if (o.visible === false) return f
   const p0 = cpos(o, dyn)
   for (const other of objects) {
     if (other.kind !== 'point' || other.id === o.id) continue
+    if (other.visible === false) continue
     if (other.physics.charge === 0) continue
     const p1 = cpos(other, dyn)
     const dx = p0[0] - p1[0]
@@ -66,6 +68,7 @@ export function fieldForce(
 ): Vec3 {
   const f: Vec3 = [0, 0, 0]
   if (o.physics.anchored) return f
+  if (o.visible === false) return f
   const m = o.physics.mass > 0 ? o.physics.mass : 1
   if (gravity !== 0) f[2] -= m * gravity
   const c = o.physics.drag ?? 0
@@ -89,6 +92,7 @@ export function stepPhysics(
   const d = Math.min(dt, 0.05)
   for (const o of objects) {
     if (o.kind !== 'point' || o.physics.anchored) continue
+    if (o.visible === false) continue
     const st = dyn.get(o.id)
     if (!st) continue
     const m = o.physics.mass > 0 ? o.physics.mass : 1
