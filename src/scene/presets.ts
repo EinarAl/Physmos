@@ -1,4 +1,5 @@
 import type { SimObject } from '../types'
+import { DEFAULT_CHARGE, DEFAULT_CONTOURS } from '../types'
 import { COLORS } from '../theme'
 import type { SceneSnapshot } from './io'
 
@@ -18,6 +19,7 @@ function buildDemoObjects({ newId }: DemoFactory): SimObject[] {
       params: 'R=3, vd=0.9, w=1',
       range: [0, Math.PI * 2 + 0.015],
       samples: 600,
+      charge: { mode: 'density', value: 1.5 },
     },
     {
       id: newId(),
@@ -31,6 +33,8 @@ function buildDemoObjects({ newId }: DemoFactory): SimObject[] {
       rangeA: [-4, 4],
       rangeB: [-4, 4],
       resolution: [60, 60],
+      contours: { ...DEFAULT_CONTOURS },
+      charge: { ...DEFAULT_CHARGE, value: 8 },
     },
     {
       id: newId(),
@@ -73,7 +77,7 @@ export function buildDemoSnapshot({ newId }: DemoFactory): SceneSnapshot {
   return {
     version: 1,
     name: 'physics playground demo',
-    fields: { coulombK: 40, gravity: 9.81, trailsOn: true },
+    fields: { coulombK: 40, gravity: 9.81, trailsOn: true, fieldOn: false, fieldSpacing: 3 },
     objects: buildDemoObjects({ newId }),
   }
 }

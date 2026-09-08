@@ -1,9 +1,12 @@
-import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
+import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3, ChargeProps, ContourToggles } from '../types'
+import { DEFAULT_CHARGE, DEFAULT_CONTOURS } from '../types'
 
 export interface SceneFields {
   coulombK: number
   gravity: number
   trailsOn: boolean
+  fieldOn: boolean
+  fieldSpacing: number
 }
 
 export interface SceneSnapshot {
@@ -18,13 +21,21 @@ export interface AppStateSource {
   coulombK: number
   gravity: number
   trailsOn: boolean
+  fieldOn: boolean
+  fieldSpacing: number
 }
 
 export function serializeScene(state: AppStateSource): string {
   const snap: SceneSnapshot = {
     version: 1,
     name: 'physmos scene',
-    fields: { coulombK: state.coulombK, gravity: state.gravity, trailsOn: state.trailsOn },
+    fields: {
+      coulombK: state.coulombK,
+      gravity: state.gravity,
+      trailsOn: state.trailsOn,
+      fieldOn: state.fieldOn,
+      fieldSpacing: state.fieldSpacing,
+    },
     objects: state.objects.map((o) => {
       const { error, ...rest } = o as { error?: string }
       void error
@@ -42,6 +53,25 @@ function num(n: unknown, fallback: number): number {
 function vec3(v: unknown, fallback: Vec3): Vec3 {
   if (!Array.isArray(v) || v.length < 3) return fallback
   return [num(v[0], fallback[0]), num(v[1], fallback[1]), num(v[2], fallback[2])]
+}
+
+function sanitizeCharge(raw: unknown): ChargeProps {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object') return { ...DEFAULT_CHARGE }
+  return {
+    mode: c.mode === 'density' ? 'density' : 'total',
+    value: num(c.value, 0),
+  }
+}
+
+function sanitizeContours(raw: unknown): ContourToggles {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object') return { ...DEFAULT_CONTOURS }
+  return {
+    xy: c.xy !== false,
+    xz: c.xz !== false,
+    yz: c.yz !== false,
+  }
 }
 
 export function sanitizeObject(raw: unknown, newId: () => string): SimObject | null {
@@ -94,6 +124,7 @@ export function sanitizeObject(raw: unknown, newId: () => string): SimObject | n
       params: typeof o.params === 'string' ? o.params : '',
       range: [num((o.range as unknown[])?.[0], 0), num((o.range as unknown[])?.[1], Math.PI * 2 + 0.015)] as [number, number],
       samples: Math.max(10, num((o as Record<string, unknown>).samples, 200)),
+      charge: sanitizeCharge((o as Record<string, unknown>).charge),
     }
     return curve
   }
@@ -112,6 +143,8 @@ export function sanitizeObject(raw: unknown, newId: () => string): SimObject | n
       rangeA: [num((s.rangeA as unknown[])?.[0], -4), num((s.rangeA as unknown[])?.[1], 4)] as [number, number],
       rangeB: [num((s.rangeB as unknown[])?.[0], -4), num((s.rangeB as unknown[])?.[1], 4)] as [number, number],
       resolution: [Math.max(4, num((s.resolution as unknown[])?.[0], 48)), Math.max(4, num((s.resolution as unknown[])?.[1], 48))] as [number, number],
+      contours: sanitizeContours(s.contours),
+      charge: sanitizeCharge(s.charge),
     }
     return surface
   }
@@ -134,7 +167,13 @@ export function parseScene(text: string): SceneSnapshot | null {
   return {
     version: 1,
     name: typeof r.name === 'string' ? r.name : 'physmos scene',
-    fields: { coulombK: num(f.coulombK, 0), gravity: num(f.gravity, 0), trailsOn: f.trailsOn === true },
+    fields: {
+      coulombK: num(f.coulombK, 0),
+      gravity: num(f.gravity, 0),
+      trailsOn: f.trailsOn === true,
+      fieldOn: f.fieldOn === true,
+      fieldSpacing: num(f.fieldSpacing, 3),
+    },
     objects: r.objects,
   }
 }

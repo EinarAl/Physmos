@@ -17,6 +17,19 @@ export interface PhysicsProps {
   forces: ForceRow[]
 }
 
+// Continuous charge distributions: either a total charge Q spread uniformly
+// over the shape, or a literal density (lambda for curves, sigma for surfaces).
+export interface ChargeProps {
+  mode: 'total' | 'density'
+  value: number
+}
+
+export interface ContourToggles {
+  xy: boolean
+  xz: boolean
+  yz: boolean
+}
+
 export interface PointObj {
   id: string
   kind: 'point'
@@ -39,6 +52,7 @@ export interface CurveObj {
   params: string
   range: [number, number]
   samples: number
+  charge: ChargeProps
   error?: string
 }
 
@@ -54,6 +68,8 @@ export interface SurfaceObj {
   rangeA: [number, number]
   rangeB: [number, number]
   resolution: [number, number]
+  contours: ContourToggles
+  charge: ChargeProps
   error?: string
 }
 
@@ -63,3 +79,5 @@ export const DEFAULT_CURVE_EXPR = '(sin(t), cos(t), 0)'
 export const DEFAULT_PARAM_SURFACE_EXPR = '(u*cos(v), u*sin(v), u)'
 export const DEFAULT_SURFACE_EXPR = 'sin(x)*cos(y)'
 export const DEFAULT_PARAMS = 'R=3, vd=0.9, w=1'
+export const DEFAULT_CHARGE: ChargeProps = { mode: 'total', value: 0 }
+export const DEFAULT_CONTOURS: ContourToggles = { xy: true, xz: true, yz: true }

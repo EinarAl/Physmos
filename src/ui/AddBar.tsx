@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { classify, evalComponents, sanitizeExpr } from '../expr/parse'
 import type { SimObject } from '../types'
+import { DEFAULT_CHARGE, DEFAULT_CONTOURS } from '../types'
 import { nextId } from '../store'
 
 function colorAt(n: number): string {
@@ -57,6 +58,7 @@ export function AddBar() {
         params: '',
         range: [0, Math.PI * 2 + 0.015],
         samples: 600,
+        charge: { ...DEFAULT_CHARGE },
       }
     } else if (cls.type === 'parametric') {
       obj = {
@@ -69,6 +71,8 @@ export function AddBar() {
         rangeA: [0, Math.PI * 2],
         rangeB: [0, Math.PI],
         resolution: [48, 48],
+        contours: { ...DEFAULT_CONTOURS },
+        charge: { ...DEFAULT_CHARGE },
       }
     } else {
       obj = {
@@ -81,6 +85,8 @@ export function AddBar() {
         rangeA: [-4, 4],
         rangeB: [-4, 4],
         resolution: [60, 60],
+        contours: { ...DEFAULT_CONTOURS },
+        charge: { ...DEFAULT_CHARGE },
       }
     }
     addObject(obj)
