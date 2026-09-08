@@ -2,17 +2,32 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { SimObject, PointObj, CurveObj, SurfaceObj, Vec3 } from '../types'
-import { buildCurveGeometry, buildSurfaceGeometry } from '../engine/builder'
+import { buildCurveGeometry, buildSurfaceContours, buildSurfaceGeometry } from '../engine/builder'
 import { frenetFrame } from '../engine/frenet'
 import { appendTrail, TRAIL_MAX } from './trails'
 import { useStore } from '../store'
 import { directionAsVec, chargeForceOn, stepPhysics, fieldForce, type DynState } from '../physics/engine'
+import { buildChargeSamples, type ChargeSample } from '../physics/charge'
+import { traceFieldLines, fieldArrows, fieldFade, MAX_POINTS, MAX_SEEDS, MAX_ARROW_CAP } from '../physics/field'
 import { AXIS_COLORS, COLORS } from '../theme'
 import { hudCamera } from '../ui/hudState'
 
 // oxlint-disable react/immutability -- scene objects are imperative and mutated per frame
 
 const dynRef = new Map<string, DynState>()
+
+// Charged curve/surface pieces, rebuilt whenever objects change (cheap); the
+// physics step consumes this instead of rebuilding geometry per frame.
+const chargeRef = new Map<string, readonly ChargeSample[]>()
+
+function syncChargeSamples(objects: SimObject[]): void {
+  const ids = new Set(objects.filter((o) => o.kind !== 'point').map((o) => o.id))
+  for (const id of [...chargeRef.keys()]) if (!ids.has(id)) chargeRef.delete(id)
+  for (const o of objects) {
+    if (o.kind === 'point') continue
+    chargeRef.set(o.id, buildChargeSamples(o) ?? [])
+  }
+}
 
 function forceColor(i: number): string {
   const palette = [COLORS.green, COLORS.blue, '#c58aff', '#ffa34d', '#4dd7c9']
@@ -40,9 +55,14 @@ function reseed(objects: SimObject[]): void {
 function useDynamics(): void {
   const playing = useStore((s) => s.playing)
   const version = useStore((s) => s.engineVersion)
+  const objects = useStore((s) => s.objects)
   const accRef = useRef(0)
   const tRef = useRef(0)
   const lastVer = useRef(version)
+
+  useEffect(() => {
+    syncChargeSamples(objects)
+  }, [objects])
 
   const sync = () => {
     const { objects } = useStore.getState()
@@ -64,7 +84,7 @@ function useDynamics(): void {
     }
     if (playing) {
       const dt = delta * useStore.getState().timeScale
-      stepPhysics(objects, dynRef, dt, useStore.getState().coulombK, useStore.getState().gravity)
+      stepPhysics(objects, dynRef, dt, useStore.getState().coulombK, useStore.getState().gravity, chargeRef)
       tRef.current += dt
     }
     accRef.current += delta
@@ -153,6 +173,7 @@ function CurveMesh({ o }: { o: CurveObj }) {
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         toneMapped: false,
+        fog: false,
       }),
     )
     void build
@@ -203,38 +224,34 @@ function SurfaceMesh({ o }: { o: SurfaceObj }) {
   const selected = useStore((s) => s.selectedId === o.id)
   const build = useMemo(() => buildSurfaceGeometry(o), [o])
   useError(build, o.id)
-  const wireMat = useRef<THREE.LineBasicMaterial>(null)
-  const meshMat = useRef<THREE.MeshStandardMaterial>(null)
+  const meshMat = useRef<THREE.MeshBasicMaterial>(null)
+  const baseColor = useMemo(() => new THREE.Color(o.color), [o.color])
   useEffect(() => {
-    if (wireMat.current) wireMat.current.opacity = selected ? 0.62 : 0.38
-    if (meshMat.current) meshMat.current.emissiveIntensity = selected ? 0.32 : 0.14
-  }, [selected])
-  const wire = useMemo(() => {
+    if (!meshMat.current) return
+    if (selected) meshMat.current.color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35)
+    else meshMat.current.color.copy(baseColor)
+  }, [selected, baseColor])
+  const contours = useMemo(() => {
     if (!build.geometry) return null
-    const pos = build.geometry.getAttribute('position') as THREE.BufferAttribute
-    if (!pos) return null
-    const na = o.resolution[0]
-    const nb = o.resolution[1]
-    const nx = na + 1
-    // cap on-screen line density to avoid moire regardless of source resolution
-    const si = Math.max(1, Math.ceil(na / 18))
-    const sj = Math.max(1, Math.ceil(nb / 18))
-    const indices: number[] = []
-    for (let i = 0; i <= na; i += si) {
-      for (let j = 0; j < nb; j += sj) {
-        indices.push((i * nx + j) * 3, (i * nx + j + 1) * 3)
-      }
+    const [na, nb] = o.resolution
+    return {
+      z: buildSurfaceContours(build.geometry, Math.max(2, na), Math.max(2, nb), 7, 2),
+      x: buildSurfaceContours(build.geometry, Math.max(2, na), Math.max(2, nb), 5, 0),
+      y: buildSurfaceContours(build.geometry, Math.max(2, na), Math.max(2, nb), 5, 1),
     }
-    for (let i = 0; i < na; i += si) {
-      for (let j = 0; j <= nb; j += sj) {
-        indices.push((i * nx + j) * 3, ((i + 1) * nx + j) * 3)
-      }
-    }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.BufferAttribute(pos.array.slice() as Float32Array, 3))
-    g.setIndex(indices)
-    return g
-  }, [build, o])
+  }, [build, o.resolution])
+  const contourMaterial = (family: 'z' | 'x' | 'y') => (
+    <lineBasicMaterial
+      color={(selected ? baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.55) : baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.32)).getStyle()}
+      transparent
+      opacity={family === 'z' ? 0.75 : 0.45}
+      blending={THREE.AdditiveBlending}
+      depthTest={false}
+      depthWrite={false}
+      toneMapped={false}
+      fog={false}
+    />
+  )
   if (!build.geometry || !o.visible) return null
   return (
     <group
@@ -243,34 +260,18 @@ function SurfaceMesh({ o }: { o: SurfaceObj }) {
         useStore.getState().select(o.id)
       }}
     >
-      <mesh geometry={build.geometry}>
-        <meshStandardMaterial
-          ref={meshMat}
-          color={o.color}
-          side={THREE.DoubleSide}
-          roughness={0.9}
-          metalness={0}
-          emissive={o.color}
-          emissiveIntensity={0.14}
-          transparent
-          opacity={0.04}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
-      {wire && (
-        <lineSegments geometry={wire}>
-          <lineBasicMaterial
-            ref={wireMat}
-            color={o.color}
-            transparent
-            opacity={0.38}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </lineSegments>
+      {contours?.y && o.contours.xz && (
+        <lineSegments geometry={contours.y}>{contourMaterial('y')}</lineSegments>
       )}
+      {contours?.x && o.contours.yz && (
+        <lineSegments geometry={contours.x}>{contourMaterial('x')}</lineSegments>
+      )}
+      {contours?.z && o.contours.xy && (
+        <lineSegments geometry={contours.z}>{contourMaterial('z')}</lineSegments>
+      )}
+      <mesh geometry={build.geometry}>
+        <meshBasicMaterial ref={meshMat} color={o.color} side={THREE.DoubleSide} transparent opacity={0.6} depthWrite={false} toneMapped={false} fog={false} />
+      </mesh>
     </group>
   )
 }
@@ -303,7 +304,7 @@ function PointBody({ o }: { o: PointObj }) {
     })
     const qArrow = arrows.current[chargeIdx]
     if (qArrow) {
-      const v = chargeForceOn(o, useStore.getState().objects, dynRef, useStore.getState().coulombK)
+      const v = chargeForceOn(o, useStore.getState().objects, dynRef, useStore.getState().coulombK, chargeRef)
       const mag = Math.hypot(v[0], v[1], v[2])
       if (o.physics.charge === 0 || mag === 0) {
         qArrow.visible = false
@@ -476,13 +477,12 @@ function makeStarTexture(): THREE.CanvasTexture {
 }
 
 const STARS_OBJECT = (() => {
-  const n = 120
+  const n = 560
   const mat = new THREE.SpriteMaterial({
     map: makeStarTexture(),
     color: '#a9ccff',
     transparent: true,
     opacity: 0.9,
-    depthTest: false,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     fog: false,
@@ -500,19 +500,16 @@ const STARS_OBJECT = (() => {
   const group = new THREE.Group()
   group.name = 'physmos-stars'
   for (let i = 0; i < n; i++) {
-    // random direction within a ~45deg cone around the default view direction
-    const r = 42 + Math.random() * 20
+    // full celestial sphere so stars ring the horizon in every direction
+    const r = 45 + Math.random() * 25
     const theta = Math.random() * Math.PI * 2
-    const cone = Math.random() * 0.75
-    const local = new THREE.Vector3(
-      Math.sin(cone) * Math.cos(theta),
-      Math.sin(cone) * Math.sin(theta),
-      Math.cos(cone),
-    )
+    const cosPhi = 2 * Math.random() - 1
+    const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi))
+    const local = new THREE.Vector3(sinPhi * Math.cos(theta), sinPhi * Math.sin(theta), cosPhi)
     local.applyQuaternion(q)
     const sp = new THREE.Sprite(mat)
     sp.position.copy(local.multiplyScalar(r))
-    sp.scale.set(0.7 + Math.random() * 0.4, 0.7 + Math.random() * 0.4, 1)
+    sp.scale.set(0.6 + Math.random() * 0.6, 0.6 + Math.random() * 0.6, 1)
     group.add(sp)
   }
   return group
@@ -544,15 +541,15 @@ function HorizonGlow() {
       map: makeGlowTexture(),
       color: '#6fa4ff',
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.25,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     })
     const sp = new THREE.Sprite(mat)
-    sp.scale.set(14, 14, 1)
+    sp.scale.set(20, 20, 1)
     return sp
   }, [])
-  return <primitive object={sprite} position={[0, -0.6, -0.6]} />
+  return <primitive object={sprite} position={[0, -1, -18]} />
 }
 
 function HudProbe() {
@@ -566,6 +563,165 @@ function HudProbe() {
     hudCamera.el = (Math.asin(dir.z / len) * 180) / Math.PI
   })
   return null
+}
+
+const FIELD_POOL = MAX_SEEDS
+const FIELD_POS_COLOR = '#6fc6ff'
+const FIELD_NEG_COLOR = '#ff8a9e'
+const FIELD_POS_HEAD = '#b5e6ff'
+const FIELD_NEG_HEAD = '#ffb7c4'
+
+// Conventional electric-field diagram in 3D: continuous field lines tangent to
+// the superposed E field at every point, seeded to revolve around each charged
+// source (spherically for points, radially from curves, normal to surfaces).
+// Lines originate on + and terminate on - charges (or stream to the domain
+// edge), and arrowheads along each line point along E. Rebuilt on a throttle
+// while playing so the field follows the moving charges.
+function FieldLayer() {
+  const fieldOn = useStore((s) => s.fieldOn)
+  const spacing = useStore((s) => s.fieldSpacing)
+  const playing = useStore((s) => s.playing)
+  const coulombK = useStore((s) => s.coulombK)
+  const version = useStore((s) => s.engineVersion)
+  const groupRef = useRef<THREE.Group>(null)
+  const accRef = useRef(0)
+  const lastVersion = useRef(-1)
+  const readyRef = useRef(false)
+
+  const lines = useMemo(() => {
+    const arr: THREE.Line[] = []
+    for (let i = 0; i < FIELD_POOL; i++) {
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_POINTS * 3), 3))
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_POINTS * 3), 3))
+      const line = new THREE.Line(
+        geo,
+        new THREE.LineBasicMaterial({
+          color: '#ffffff',
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+          fog: false,
+        }),
+      )
+      line.visible = false
+      line.frustumCulled = false
+      arr.push(line)
+    }
+    return arr
+  }, [])
+
+  const cones = useMemo(() => {
+    const mesh = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.085, 0.24, 6),
+      new THREE.MeshBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+        fog: false,
+      }),
+      MAX_ARROW_CAP,
+    )
+    mesh.count = 0
+    mesh.frustumCulled = false
+    return mesh
+  }, [])
+
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+  const pHead = useMemo(() => new THREE.Color(FIELD_POS_HEAD), [])
+  const nHead = useMemo(() => new THREE.Color(FIELD_NEG_HEAD), [])
+  const colScratch = useMemo(() => new THREE.Color(), [])
+
+  useEffect(() => {
+    if (!groupRef.current) return
+    const g = groupRef.current
+    while (g.children.length) g.remove(g.children[0])
+    for (const l of lines) g.add(l)
+    g.add(cones)
+    readyRef.current = true
+    return () => {
+      readyRef.current = false
+    }
+  }, [lines, cones, fieldOn])
+
+  useFrame((_st, delta) => {
+    if (!fieldOn || !readyRef.current) return
+    const versionChanged = version !== lastVersion.current
+    if (playing) {
+      accRef.current += delta
+      if (accRef.current < 0.3 && !versionChanged) return
+      accRef.current = 0
+    } else {
+      if (!versionChanged) return
+    }
+    lastVersion.current = version
+    const objs = useStore.getState().objects
+    const traces = traceFieldLines(objs, dynRef, coulombK, chargeRef, { seedScale: 3 / spacing, bound: 15 })
+
+    for (let i = 0; i < FIELD_POOL; i++) {
+      const line = lines[i]
+      if (i >= traces.length) {
+        line.visible = false
+        continue
+      }
+      const tr = traces[i]
+      const attr = line.geometry.getAttribute('position') as THREE.BufferAttribute
+      const col = line.geometry.getAttribute('color') as THREE.BufferAttribute
+      const arr = attr.array as Float32Array
+      const carr = col.array as Float32Array
+      const n = Math.min(tr.points.length, MAX_POINTS)
+      const lastMag = tr.mags.length > 0 ? tr.mags[tr.mags.length - 1] : 1
+      colScratch.set(tr.sign > 0 ? FIELD_POS_COLOR : FIELD_NEG_COLOR)
+      const baseR = colScratch.r
+      const baseG = colScratch.g
+      const baseB = colScratch.b
+      for (let k = 0; k < n; k++) {
+        arr[k * 3] = tr.points[k][0]
+        arr[k * 3 + 1] = tr.points[k][1]
+        arr[k * 3 + 2] = tr.points[k][2]
+        // Vertex alpha lives in the color * fade(|E|): strong field keeps the
+        // true line tint, weak field drops toward black -> additive blends it
+        // into the void (smooth gradient, no hard cutoff).
+        const magK = k < tr.mags.length ? tr.mags[k] : lastMag
+        const fade = fieldFade(magK)
+        carr[k * 3] = baseR * fade
+        carr[k * 3 + 1] = baseG * fade
+        carr[k * 3 + 2] = baseB * fade
+      }
+      attr.needsUpdate = true
+      col.needsUpdate = true
+      line.geometry.setDrawRange(0, n)
+      line.geometry.computeBoundingSphere()
+      line.visible = true
+    }
+
+    const arrows = fieldArrows(traces, 0.55)
+    cones.count = Math.min(arrows.length, MAX_ARROW_CAP)
+    if (cones.count > 0) {
+      for (let i = 0; i < cones.count; i++) {
+        const a = arrows[i]
+        dummy.position.set(a.pos[0], a.pos[1], a.pos[2])
+        dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]))
+        dummy.scale.setScalar(1)
+        dummy.updateMatrix()
+        cones.setMatrixAt(i, dummy.matrix)
+        colScratch.set(a.sign > 0 ? pHead : nHead).multiplyScalar(fieldFade(a.mag))
+        cones.setColorAt(i, colScratch)
+      }
+      const cmat = cones.instanceMatrix
+      cmat.needsUpdate = true
+      if (cones.instanceColor) cones.instanceColor.needsUpdate = true
+    }
+  })
+
+  if (!fieldOn) return null
+  return <group ref={groupRef} />
 }
 
 export function Simulation() {
@@ -595,6 +751,7 @@ export function Simulation() {
       <Axes />
       <Trails />
       <WorldObjects />
+      <FieldLayer />
     </>
   )
 }

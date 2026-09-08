@@ -22,6 +22,10 @@ export function Toolbar() {
   const setScenePanel = useStore((s) => s.setScenePanel)
   const gridOn = useStore((s) => s.gridOn)
   const setGridOn = useStore((s) => s.setGridOn)
+  const fieldOn = useStore((s) => s.fieldOn)
+  const setFieldOn = useStore((s) => s.setFieldOn)
+  const fieldSpacing = useStore((s) => s.fieldSpacing)
+  const setFieldSpacing = useStore((s) => s.setFieldSpacing)
   const triggerResetView = useStore((s) => s.triggerResetView)
   const loadDemo = useStore((s) => s.loadDemo)
   const setHelpOn = useStore((s) => s.setHelpOn)
@@ -72,6 +76,14 @@ export function Toolbar() {
       </button>
       <button className={'btn' + (gridOn ? ' toggled' : '')} onClick={() => setGridOn(!gridOn)} title="toggle ground grid">
         {'\u2295'} Grid
+      </button>
+      {fieldOn && (
+        <div className="kctl pill field-spacing">
+          <NumField label="density" value={fieldSpacing} step={0.5} onChange={setFieldSpacing} />
+        </div>
+      )}
+      <button className={'btn' + (fieldOn ? ' toggled' : '')} onClick={() => setFieldOn(!fieldOn)} title="toggle electric field arrows">
+        {'\u27f6'} Field
       </button>
       <span className="sep" />
       <button className="btn icon" aria-label="View" title="reset camera" onClick={triggerResetView}>
