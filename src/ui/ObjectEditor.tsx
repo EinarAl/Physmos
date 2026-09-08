@@ -236,6 +236,50 @@ function PointEditor({ o }: { o: PointObj }) {
   )
 }
 
+// Shared charge configuration for curves and surfaces: a total charge Q spread
+// uniformly over the shape, or a literal density (lambda / sigma). Points keep
+// their single total-q field.
+function ChargeEditor({ o, patch }: { o: CurveObj | SurfaceObj; patch: (p: ObjectPatch) => void }) {
+  const sym = o.kind === 'surface' ? '\u03C3' : '\u03BB'
+  const unit = o.kind === 'surface' ? 'C/m\u00B2' : 'C/m'
+  const isTotal = o.charge.mode === 'total'
+  return (
+    <Section title="charge">
+      <div className="field">
+        <label>charge mode</label>
+        <div className="check">
+          <input
+            type="radio"
+            checked={isTotal}
+            onChange={() => patch({ charge: { ...o.charge, mode: 'total' } })}
+          />
+          total charge Q
+          <input
+            type="radio"
+            checked={!isTotal}
+            onChange={() => patch({ charge: { ...o.charge, mode: 'density' } })}
+          />
+          density {sym}
+        </div>
+      </div>
+      <NumField
+        label={isTotal ? 'charge (Q)' : `charge density (${sym}) ${unit}`}
+        value={o.charge.value}
+        step={0.5}
+        onChange={(v) => patch({ charge: { ...o.charge, value: v } })}
+      />
+      <div className="hint">
+        {isTotal
+          ? 'Q is spread as many small charges over the shape (the integration pieces).'
+          : `${sym} acts on every piece of the shape; total charge = ${sym} \u00D7 ${o.kind === 'surface' ? 'area' : 'length'}.`}
+      </div>
+      <div className="hint">
+        charged shapes push and pull point charges the way isolated point charges do, using each piece's distance.
+      </div>
+    </Section>
+  )
+}
+
 function CurveEditor({ o }: { o: CurveObj }) {
   const updateObject = useStore((s) => s.updateObject)
   const frameOn = useStore((s) => s.frameOn)
@@ -302,6 +346,7 @@ function CurveEditor({ o }: { o: CurveObj }) {
           </>
         )}
       </Section>
+      <ChargeEditor o={o} patch={patch} />
     </>
   )
 }
@@ -355,6 +400,34 @@ function SurfaceEditor({ o }: { o: SurfaceObj }) {
           <NumField label="res v/y" value={o.resolution[1]} step={10} onChange={(v) => patch({ resolution: [o.resolution[0], v] })} />
         </div>
       </Section>
+      <Section title="topological contours">
+        <div className="check">
+          <input
+            type="checkbox"
+            checked={o.contours.xy}
+            onChange={(e) => patch({ contours: { ...o.contours, xy: e.target.checked } })}
+          />
+          xy-slices (constant z)
+        </div>
+        <div className="check">
+          <input
+            type="checkbox"
+            checked={o.contours.xz}
+            onChange={(e) => patch({ contours: { ...o.contours, xz: e.target.checked } })}
+          />
+          xz-slices (constant y)
+        </div>
+        <div className="check">
+          <input
+            type="checkbox"
+            checked={o.contours.yz}
+            onChange={(e) => patch({ contours: { ...o.contours, yz: e.target.checked } })}
+          />
+          yz-slices (constant x)
+        </div>
+        <div className="hint">elevation-style slices along each coordinate plane.</div>
+      </Section>
+      <ChargeEditor o={o} patch={patch} />
     </>
   )
 }
