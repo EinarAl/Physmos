@@ -82,3 +82,75 @@ export function buildSurfaceGeometry(o: SurfaceObj): BuildResult {
   geometry.computeVertexNormals()
   return { geometry }
 }
+
+// Topological contour lines: isoclines of one coordinate traced over the surface
+// grid via marching squares, returned as a lineSegments position buffer.
+// fieldIdx selects the isovalue coordinate: 0 = x (zy-plane slices), 1 = y (zx-plane slices), 2 = z (xy-plane slices).
+// na/nb must match the geometry layout (row-major, stride na+1).
+export function buildSurfaceContours(
+  geometry: THREE.BufferGeometry,
+  na: number,
+  nb: number,
+  levels = 7,
+  fieldIdx = 2,
+): THREE.BufferGeometry | null {
+  const pos = geometry.getAttribute('position') as THREE.BufferAttribute
+  if (!pos) return null
+  const arr = pos.array as Float32Array
+  const nx = na + 1
+  const p = (i: number, j: number): number => (i * nx + j) * 3
+
+  let lo = Infinity
+  let hi = -Infinity
+  for (let i = 0; i <= na; i++) {
+    for (let j = 0; j <= nb; j++) {
+      const v = arr[p(i, j) + fieldIdx]
+      if (v < lo) lo = v
+      if (v > hi) hi = v
+    }
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi - lo < 1e-6) return null
+
+  const out: number[] = []
+  for (let k = 0; k < levels; k++) {
+    const c = lo + ((hi - lo) * k) / (levels - 1)
+    for (let i = 0; i < na; i++) {
+      for (let j = 0; j < nb; j++) {
+        const a = p(i, j)
+        const b = p(i, j + 1)
+        const c2 = p(i + 1, j)
+        const d = p(i + 1, j + 1)
+        const cross = (p1: number, p2: number): [number, number, number] | null => {
+          const v1 = arr[p1 + fieldIdx]
+          const v2 = arr[p2 + fieldIdx]
+          if ((v1 < c) === (v2 < c)) return null
+          const t = (c - v1) / (v2 - v1)
+          const pt: [number, number, number] = [
+            arr[p1] + (arr[p2] - arr[p1]) * t,
+            arr[p1 + 1] + (arr[p2 + 1] - arr[p1 + 1]) * t,
+            arr[p1 + 2] + (arr[p2 + 2] - arr[p1 + 2]) * t,
+          ]
+          pt[fieldIdx] = c
+          return pt
+        }
+        const pts: [number, number, number][] = []
+        for (const [e1, e2] of [
+          [a, b],
+          [a, c2],
+          [c2, d],
+          [b, d],
+        ] as const) {
+          const pt = cross(e1, e2)
+          if (pt) pts.push(pt)
+        }
+        if (pts.length === 2) {
+          out.push(...pts[0], ...pts[1])
+        }
+      }
+    }
+  }
+  if (out.length === 0) return null
+  const g2 = new THREE.BufferGeometry()
+  g2.setAttribute('position', new THREE.BufferAttribute(new Float32Array(out), 3))
+  return g2
+}

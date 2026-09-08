@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SimObject, Vec3, PhysicsProps } from './types'
+import type { SimObject, Vec3, PhysicsProps, ChargeProps, ContourToggles } from './types'
 import { sanitizeObject, type SceneSnapshot } from './scene/io'
 import { buildDemoSnapshot } from './scene/presets'
 
@@ -26,7 +26,9 @@ export interface ObjectPatch {
   mode?: 'explicit' | 'parametric'
   rangeA?: [number, number]
   rangeB?: [number, number]
-  resolution?: [number, number]
+resolution?: [number, number]
+  contours?: Partial<ContourToggles>
+  charge?: Partial<ChargeProps>
   physics?: Partial<PhysicsProps>
 }
 
@@ -42,9 +44,11 @@ interface AppStore {
   timeScale: number
   frameOn: boolean
   frameT: number
-  trailsOn: boolean
+trailsOn: boolean
   trailVersion: number
   gridOn: boolean
+  fieldOn: boolean
+  fieldSpacing: number
   resetView: number
   helpOn: boolean
   scenePanel: 'export' | 'import' | null
@@ -62,8 +66,10 @@ interface AppStore {
   setFrameT: (t: number) => void
   setTrailsOn: (on: boolean) => void
   clearTrails: () => void
-  resetSim: () => void
+resetSim: () => void
   setGridOn: (on: boolean) => void
+  setFieldOn: (on: boolean) => void
+  setFieldSpacing: (s: number) => void
   triggerResetView: () => void
   setHelpOn: (on: boolean) => void
   setScenePanel: (p: 'export' | 'import' | null) => void
@@ -71,8 +77,25 @@ interface AppStore {
   loadDemo: () => void
 }
 
+// Patching any structural property (geometry, charge, visibility, physical
+// state) changes the traced field, so the paused FieldLayer must recompute.
+// Pure-cosmetic patches (name, color, contours) can skip the bump.
 function bumpsEngine(patch: ObjectPatch): boolean {
-  return patch.position !== undefined || patch.physics !== undefined
+  return (
+    patch.position !== undefined ||
+    patch.physics !== undefined ||
+    patch.visible !== undefined ||
+    patch.charge !== undefined ||
+    patch.size !== undefined ||
+    patch.expr !== undefined ||
+    patch.params !== undefined ||
+    patch.mode !== undefined ||
+    patch.range !== undefined ||
+    patch.samples !== undefined ||
+    patch.rangeA !== undefined ||
+    patch.rangeB !== undefined ||
+    patch.resolution !== undefined
+  )
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -87,9 +110,11 @@ export const useStore = create<AppStore>((set) => ({
   timeScale: 1,
   frameOn: false,
   frameT: 0,
-  trailsOn: true,
+trailsOn: true,
   trailVersion: 0,
   gridOn: true,
+  fieldOn: false,
+  fieldSpacing: 3,
   resetView: 0,
   helpOn: false,
   scenePanel: null,
@@ -128,7 +153,7 @@ export const useStore = create<AppStore>((set) => ({
   resetSim: () =>
     set((s) => ({ playing: false, time: 0, engineVersion: s.engineVersion + 1, trailVersion: s.trailVersion + 1 })),
   setScenePanel: (scenePanel) => set({ scenePanel }),
-  loadScene: (snap) =>
+loadScene: (snap) =>
     set((s) => {
       const objects = snap.objects
         .map((raw) => sanitizeObject(raw, nextId))
@@ -138,6 +163,8 @@ export const useStore = create<AppStore>((set) => ({
         coulombK: snap.fields.coulombK,
         gravity: snap.fields.gravity,
         trailsOn: snap.fields.trailsOn,
+        fieldOn: snap.fields.fieldOn,
+        fieldSpacing: snap.fields.fieldSpacing,
         selectedId: null,
         playing: false,
         time: 0,
@@ -146,6 +173,8 @@ export const useStore = create<AppStore>((set) => ({
       }
     }),
   setGridOn: (gridOn) => set({ gridOn }),
+  setFieldOn: (fieldOn) => set({ fieldOn }),
+  setFieldSpacing: (fieldSpacing) => set({ fieldSpacing }),
   triggerResetView: () => set((s) => ({ resetView: s.resetView + 1 })),
   setHelpOn: (helpOn) => set({ helpOn }),
   loadDemo: () =>
